@@ -1,5 +1,5 @@
-# Space Titanic Project
-Collaborative classification project to predict teleportation among Space Titanic passengers.
+# Spaceship Titanic Project
+Collaborative project to predict teleportation among Spaceship Titanic passengers.
 
 View the [dataset](https://www.kaggle.com/competitions/spaceship-titanic) (source: Kaggle.com).
 
@@ -7,7 +7,7 @@ View the [dataset](https://www.kaggle.com/competitions/spaceship-titanic) (sourc
 ## Members
 [Monica Amezquita](https://github.com/mmamezq), [Alejandro Hernandez](https://github.com/alejandroh3005), and [Hugo Marquez](https://github.com)
 
-(Cal Poly Pomona, Dept. of Mathematics and Statistics)
+(Cal Poly Pomona; Dept. of Mathematics and Statistics, Dept. of Computer Science)
 
 ## Problem Statement
 Welcome to the year 2912, where your data science skills are needed to solve a cosmic mystery. We've received a transmission from four lightyears away and things aren't looking good.
