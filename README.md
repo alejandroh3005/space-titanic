@@ -5,7 +5,7 @@ View the [dataset](https://www.kaggle.com/competitions/spaceship-titanic) (sourc
 
 
 ## Members
-[Monica Amezquita](https://github.com/mmamezq), [Alejandro Hernandez](https://github.com/alejandroh3005), and [Hugo Marquez]([url](https://github.com)
+[Monica Amezquita](https://github.com/mmamezq), [Alejandro Hernandez](https://github.com/alejandroh3005), and [Hugo Marquez](https://github.com)
 
 (Cal Poly Pomona, Dept. of Mathematics and Statistics)
 
