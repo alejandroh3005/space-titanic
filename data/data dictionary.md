@@ -2,7 +2,7 @@
 **train.csv** - Personal records for about two-thirds (~8700) of the passengers, to be used as training data.
 
 **test.csv** - Personal records for the remaining one-third (~4300) of the passengers, to be used as test data. 
-Our task is to predict the value of **Transported** for the passengers in this set.
+Our task is to predict the value of Transported for the passengers in this set.
 
 
 ### PassengerId
