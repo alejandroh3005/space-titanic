@@ -1,12 +1,20 @@
 ---
 title: "Feature Engineering"
-output: html_document
+output:
+  pdf_document: default
+  html_document: default
 date: "2022-08-04"
 ---
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
+
+```{r}
+project_dir <- getwd()
+train <- read.csv("C:/Users/alega/RProjects/spaceship-titanic/data/train.csv")
+```
+
 
 ```{r}
 train <- separate(train, col=Cabin, into=c("Deck", "Num", "Side"), sep='/')

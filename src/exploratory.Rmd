@@ -18,11 +18,15 @@ library(GGally)
 ```
 
 ```{r}
-train <- read.csv(sprintf("%s/spacetitanic/train.csv", getwd()))
+train <- read.csv("C:/Users/alega/RProjects/spaceship-titanic/data/train.csv")
 ```
 
 # Explore the Training Set
 
 ```{r}
 ggpairs(train[-c(1,4,13)])  # ignore features with many levels (i.e. names)
+```
+
+```{r}
+ggplot(train, )
 ```
