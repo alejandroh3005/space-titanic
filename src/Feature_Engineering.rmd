@@ -1,0 +1,13 @@
+---
+title: "Feature Engineering"
+output: html_document
+date: "2022-08-04"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+train <- separate(train, col=Cabin, into=c("Deck", "Num", "Side"), sep='/')
+```
