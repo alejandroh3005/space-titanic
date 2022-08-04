@@ -10,4 +10,8 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ```{r}
 train <- separate(train, col=Cabin, into=c("Deck", "Num", "Side"), sep='/')
+
+train <-  separate(train, col=PassengerId , into=c("GroupId", "PersonalId"), sep='_')
+
+train <-  separate(train, col=Name , into=c("FirstName", "LastName"), sep=' ')
 ```
