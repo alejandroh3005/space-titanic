@@ -54,7 +54,7 @@ space_titanic_train$Transported = factor(space_titanic_train$Transported)
 
 space_titanic_train$Transported <- factor(space_titanic_train$Transported, levels = c("FALSE","TRUE"))
 
-levels(space_titanic_train$Transported) <- c("NO", "YES")
+levels(space_titanic_train$Transported) <- c("FALSE", "TRUE")
 
 control <- trainControl(method="cv",number=5)
 
