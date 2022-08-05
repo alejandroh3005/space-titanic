@@ -50,6 +50,7 @@ train <- train %>%
 # confirm each variable is the correct type
 sapply(train, typeof)
 ```
+
 ```{r}
 # in each column...
 # count number of missing values
@@ -64,8 +65,7 @@ Now, we can explore methods of imputation.
 
 ## Mean/Mode Imputation
 
-Filling missing values of a variable with the variable's mean (if numeric) or mode (if categorical) is a quick, simple, and easy strategy to implement that seems- at a glance- reasonable.
-However, there are some serious drawbacks to this method. For numeric data, because mean imputed values are totally independent from other predictors, they have the potential to erase correlation between variables.
+Filling missing values of a variable with the variable's mean (if numeric) or mode (if categorical) is a quick, simple, and easy strategy to implement that seems- at a glance- reasonable. However, there are some serious drawbacks to this method. For numeric data, because mean imputed values are totally independent from other predictors, they have the potential to erase correlation between variables.
 
 ```{r}
 # define function to compute mode
@@ -74,7 +74,8 @@ getmode <- function(v, na.rm = FALSE) {
   uniqv <- unique(v)
   uniqv[which.max(tabulate(match(v, uniqv)))]
 }
-
+```
+```{r}
 # fill mean for numeric columns
 mean_imp <- train %>%
   mutate_all(~ifelse(is.na(.x),
@@ -87,21 +88,61 @@ mean_imp <- mean_imp %>%
                      .x))
 
 # confirm all NA are gone
-colSums(is.na(mean_imp))
+anyNA(mean_imp)
 ```
 
 ## KNN Imputation
 
-```{r}
+A second method of imputation for numeric variables is the K-Nearest Neighbors estimate. This method is more refined than the previous and incorporates other predictors in its estimate. The default value of k is 10, which we believe is sufficient for our purposes.
 
+For reasons discussed in the next section, we will exclude **Num** from this model.
+
+```{r}
+mice_mod <- mice(train[!names(train) %in% c('Transported', 'Num')], method="rf")
+knn_imp <- complete(mice_mod)
+knn_imp[c('Num', 'Transported')] <- train[c( 'Num', 'Transported')]
+colSums(is.na(knn_imp))
 ```
 
+The **mice** package allows us to make strong imputation of numeric variables, but there are categorical predictors we have yet to intelligently estimate.
 
+## Group-based Imputation
 
+Upon consideration, we arrived at the assumption that the values of those categorical predictors (**HomePlanet**, **Deck**, **Side**, and **Destination**) is likely similar among members of a group.
 
+Perhaps then, we can consider a group's most common planet of departure, destination, etc. as the best estimate of that group's member.
 
+Below is our implementation of this method. Note that if a group is a single passengers, whose value for a selected variable is NA, that observation cannot be estimated.
 
+```{r}
+# define which categorical variables to impute by group
+vars <- c("HomePlanet", "Deck", "Side", "Destination")
 
+group_imp <- train
+colSums(is.na(group_imp[,vars]))
+cat("\n")
 
+# iterate through each variable
+for (var in vars) {
+  # get GroupId's that have NA
+  na_groups <- unique(group_imp$GroupId[is.na(group_imp[[var]])])
+  # get GroupId column that only includes those with NA (repetitions are present)
+  df <- group_imp$GroupId[group_imp$GroupId %in% na_groups]
+  # we cannot estimate when the only member in the group has NA for the variable
+  # get id of NA groups with more than 1 member
+  na_groups <- names(table(df)[table(df) > 1])
+  
+  # for each NA group with more than 1 member, compute group mode and assign to NA
+  i <- 0
+  for (groupid in na_groups) {
+    i <- i + 1
+    ls <- c(group_imp[[var]][group_imp$GroupId == groupid])
+    mode <- getmode(ls)
+    group_imp[[var]][group_imp$GroupId == groupid] <- mode
+  }
+  cat("Imputed", i, "values of", var, "\n")
+}
 
-
+cat("\n")
+colSums(is.na(group_imp[,vars]))
+```
