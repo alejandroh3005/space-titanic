@@ -6,7 +6,17 @@ output: pdf_document
 ---
 
 ```{r setup, include=FALSE}
+
+
+library(stringr)
+library(mice)
 knitr::opts_chunk$set(echo = TRUE)
+
+# set working directory to project directory (outside of SRC folder)
+split <- str_split(getwd(), "/", simplify = TRUE)
+wdir <- paste(split[-length(split)], collapse = "/")
+knitr::opts_knit$set(root.dir = wdir)
+
 ```
 
 ## R Markdown
@@ -16,7 +26,7 @@ This is an R Markdown document. Markdown is a simple formatting syntax for autho
 When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
 
 ```{r cars}
-summary(cars)
+
 ```
 
 ## Including Plots
@@ -30,14 +40,37 @@ plot(pressure)
 Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
 
 ```{r}
+
 set.seed(28765)
 
 # validation set split 75/15 split;
 
+# get training set
+train <- read.csv(sprintf("%s/data/train.csv", getwd()), na.strings = "")
+
+# split aggregate columns
+train <- separate(train, col=Cabin, into=c("Deck", "Num", "Side"), sep='/')
+train <-  separate(train, col=PassengerId , into=c("GroupId", "PersonalId"), sep='_')
+train <-  separate(train, col=Name , into=c("FirstName", "LastName"), sep=' ')
+
+# convert GroupId, PersonalId, and Num to type INTEGER
+train[c(1,2,6)] <- sapply(train[c(1,2,6)], as.integer)
+
+# convert missing first and last names to "NONE"
+# imputation treats NA, and it wouldn't make sense to impute
+train <- train %>%
+  mutate_at(c('FirstName','LastName'), ~ replace_na(.,"NONE"))
+
+# encode columns of type LOGICAL to INTEGER (TRUE = 1, FALSE = 0)
+train <- train %>%
+  mutate_if(is.logical, as.integer)
+
+# confirm each variable is the correct type
+sapply(train, typeof)
 
 train = na.omit(train)
 
-train_index <- createDataPartition(train $ Transported, p = .75 , times = 1)$Resample1 # our training set (accessˆ);
+train_index <- createDataPartition(train $ Transported, p = .75 , times = 1)$Resample1 # our training set (access);
 
 space_titanic_train <- train[train_index, ]
 
@@ -56,30 +89,20 @@ space_titanic_train
 
 space_titanic_train$Transported = factor(space_titanic_train$Transported)
 
-space_titanic_train$Transported <- factor(space_titanic_train$Transported, levels = c("FALSE","TRUE"))
+space_titanic_train$Transported <- factor(space_titanic_train$Transported, levels =c("0" , "1"))
 
-levels(space_titanic_train$Transported) <- c("FALSE", "TRUE")
+levels(space_titanic_train$Transported) <- c("0", "1")
 
 control <- trainControl(method="cv",number=5)
 
-tr_control <- trainControl(method="cv",number=5)
+tr_control <- trainControl(method="cv",number=5, classProbs = TRUE)
 
-# fit_lm <- train( Transported ~ RoomService + FoodCourt + ShoppingMall + Spa,
-#                method = "lm",
- #               trControl = control,
-  #              data = space_titanic_train)
 
-#fit_knn <- train(Transported ~ VIP + RoomService + FoodCourt + ShoppingMall + Spa,
-#                 method = "knn",
- #                trControl = control,
-  #               preProcess = c("center","scale"), # preprocessing recommended for KNN
-   #              tuneGrid = expand.grid(k = 100),
-    #             data = space_titanic_train)
-
-#train_log <- train(Transported ~ VIP + RoomService + FoodCourt + ShoppingMall + Spa, 
- #                  method = "glm", 
-  #                 data = space_titanic_train
-   #                )
+fit_knn <- train(Transported ~ VIP + RoomService + FoodCourt + ShoppingMall + Spa,
+                 method = "knn",
+                 trControl = control,
+                 preProcess = c("center","scale"),
+                 data = space_titanic_train)
 
 # Create and fit Lasso;
 
@@ -90,11 +113,14 @@ lasso <- train(Transported ~ VIP + RoomService + FoodCourt + ShoppingMall + Spa,
              trControl = tr_control 
 ) 
 
+lambda_grid = 10^(seq(-3,1,by=0.1))
+
 ridge <- train(Transported ~ VIP + RoomService + FoodCourt + ShoppingMall + Spa,
              data = space_titanic_train,
              method = 'glmnet', 
-             tuneGrid = expand.grid(alpha = 0, lambda = 1),
+             tuneGrid = expand.grid(alpha = 0, lambda = lambda_grid),
              trControl = tr_control 
+             
 )
 
 # 5-fold cross-validation;
