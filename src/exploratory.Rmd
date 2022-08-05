@@ -7,6 +7,10 @@ output: pdf_document
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
+# set working directory to project directory (outside of SRC folder)
+split <- str_split(getwd(), "/", simplify = TRUE)
+wdir <- paste(split[-length(split)], collapse = "/")
+knitr::opts_knit$set(root.dir = wdir)
 ```
 
 ## Load Relevant Libraries and Data
@@ -19,11 +23,13 @@ library(modelr)
 library(dplyr)
 library(stringr)
 library(tidyr)
+library(sqldf)
+library(caret)
 ```
 
 ```{r}
-setwd("~/MS MATH CLASSES/DS STA 4990/Project/Spaceship Titanic")
-train <- read.csv(sprintf("%s/data/train.csv", getwd()))
+train <- read.csv(sprintf("%s/data/train.csv", getwd()), na.strings = "")
+train <- na.omit(train)
 ```
 
 # Explore the Training Set

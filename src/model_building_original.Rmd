@@ -1,0 +1,106 @@
+---
+title: "model_building_original"
+author: "Hugo Marquez"
+date: "2022-08-05"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+set.seed(28765)
+
+# validation set split 75/15 split;
+
+train = na.omit(train)
+
+train_index <- createDataPartition(train $ Transported, p = .75 , times = 1)$Resample1 # our training set (accessˆ);
+
+space_titanic_train <- train[train_index, ]
+
+# testset/ validation (indexing to get everything else);
+
+space_titanic_test <- train[-train_index, ]
+
+space_titanic_train
+
+```
+
+
+
+```{r}
+# Suppose the response variable is deaths and fit the model to the training data; # using drivers as predictor for a linear model;
+
+space_titanic_train$Transported = factor(space_titanic_train$Transported)
+
+space_titanic_train$Transported <- factor(space_titanic_train$Transported, levels = c("FALSE","TRUE"))
+
+levels(space_titanic_train$Transported) <- c("FALSE", "TRUE")
+
+control <- trainControl(method="cv",number=5)
+
+tr_control <- trainControl(method="cv",number=5)
+
+# fit_lm <- train( Transported ~ RoomService + FoodCourt + ShoppingMall + Spa,
+#                method = "lm",
+ #               trControl = control,
+  #              data = space_titanic_train)
+
+#fit_knn <- train(Transported ~ VIP + RoomService + FoodCourt + ShoppingMall + Spa,
+#                 method = "knn",
+ #                trControl = control,
+  #               preProcess = c("center","scale"), # preprocessing recommended for KNN
+   #              tuneGrid = expand.grid(k = 100),
+    #             data = space_titanic_train)
+
+#train_log <- train(Transported ~ VIP + RoomService + FoodCourt + ShoppingMall + Spa, 
+ #                  method = "glm", 
+  #                 data = space_titanic_train
+   #                )
+
+# Create and fit Lasso;
+
+lasso <- train(Transported ~ VIP + RoomService + FoodCourt + ShoppingMall + Spa,
+             data = space_titanic_train,
+             method = 'glmnet', 
+             tuneGrid = expand.grid(alpha = 1, lambda = 1),
+             trControl = tr_control 
+) 
+
+ridge <- train(Transported ~ VIP + RoomService + FoodCourt + ShoppingMall + Spa,
+             data = space_titanic_train,
+             method = 'glmnet', 
+             tuneGrid = expand.grid(alpha = 0, lambda = 1),
+             trControl = tr_control 
+)
+
+# 5-fold cross-validation;
+
+control = trainControl(method="cv", number = 5, classProbs=TRUE)
+
+# methods: "svmLinear", "svmPoly", "svmRadial";
+
+
+
+train_svm_lin <- train(Transported ~ VIP + RoomService + FoodCourt + ShoppingMall + Spa ,
+                       method = "svmLinear", 
+                       trControl = control,  
+                       data = space_titanic_train,
+                       preProcess = c("center","scale"),  # data should be preprocessed for SVM
+                       tuneGrid = expand.grid(C = seq(0.01, 2, length=20))  # tuning parameters go here
+                   )
+
+
+cbind(coef(lasso$finalModel, lasso$finalModel$lambdaOpt),
+      coef(ridge$finalModel, ridge$finalModel$lambdaOpt)
+      )
+
+train_svm_lin$finalModel
+
+```
+
+
+
+

@@ -9,9 +9,64 @@ knitr::opts_chunk$set(echo = TRUE)
 ```
 
 ```{r}
+#Split certain columns into multiple column
+
+# Separate Cabin column into Deck, Num, and Side
 train <- separate(train, col=Cabin, into=c("Deck", "Num", "Side"), sep='/')
 
+# Separate PassenderId column into GroupId and PersonalId
 train <-  separate(train, col=PassengerId , into=c("GroupId", "PersonalId"), sep='_')
 
+# Separate Name column into FirstName and LastName
 train <-  separate(train, col=Name , into=c("FirstName", "LastName"), sep=' ')
+
+# Create Expenditure column which produces the total amount spent aboard the Spaceship Titanic
+train['Expenditure'] <- train['RoomService'] + train['FoodCourt'] + train['ShoppingMall'] + train['Spa'] + train['VRDeck']
 ```
+
+```{r}
+# Creates a categorical variable IsSoloTraveler 
+# with levels 1 if an individual is the only person in their group; 
+# 2 if an individual is in a group with at least 1 additional person
+
+groups <- sqldf("SELECT GroupId, COUNT(GroupId) AS NumGroup FROM train GROUP BY GroupId")
+
+solo_travelers <- sqldf("SELECT * FROM groups WHERE NumGroup = 1")
+
+train['IsSoloTraveler'] <- as.factor(ifelse(train$GroupId %in% solo_travellers$GroupId, 1,0))
+
+ggplot(train, aes(x = Age, fill = IsSoloTraveler)) + 
+  geom_histogram(binwidth = 1) + 
+  facet_wrap(vars(Transported))
+```
+```{r}
+# Creates a categorical variable IsSoloChildTraveller
+# with levels 1 if a child is a solo traveler (only individual in their group)
+# 2 if a child is accompanied by another person in their group 
+solo_children <- sqldf('SELECT * FROM train WHERE Age < 18 and IsSoloTraveller = 1')
+
+solo_children_trans <- sqldf('SELECT * FROM train WHERE Age < 18 and IsSoloTraveller = 1')
+
+train['IsSoloChild'] <- as.factor(ifelse(train$GroupId %in% solo_children$GroupId, 1,0))
+
+hist(solo_children$Age, breaks = 18, xlim = c(0,18))
+
+ggplot(solo_children, aes(x = Age, col = Transported, fill = Transported)) + 
+  geom_histogram(binwidth = 1)
+```
+
+```{r}
+
+```
+
+#look at group of children 
+# and whether kids where sleeping 
+#binary if kids <= 8 and not solo - categorical 
+# how can analyze the group 
+# get ratio of teleported 
+#groups are small - 
+# cabin - how does cabin 
+
+# for each person, replace personal id with group size 
+
+
