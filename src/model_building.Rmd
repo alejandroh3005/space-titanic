@@ -29,10 +29,11 @@ plot(pressure)
 
 Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
 
-
+```{r}
 set.seed(28765)
 
 # validation set split 75/15 split;
+
 
 train = na.omit(train)
 
@@ -46,8 +47,11 @@ space_titanic_test <- train[-train_index, ]
 
 space_titanic_train
 
+```
 
 
+
+```{r}
 # Suppose the response variable is deaths and fit the model to the training data; # using drivers as predictor for a linear model;
 
 space_titanic_train$Transported = factor(space_titanic_train$Transported)
@@ -115,6 +119,8 @@ cbind(coef(lasso$finalModel, lasso$finalModel$lambdaOpt),
       )
 
 train_svm_lin$finalModel
+
+```
 
 
 
