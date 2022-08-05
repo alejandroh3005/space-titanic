@@ -1,5 +1,5 @@
 ---
-title: "Imputation"
+title: "Imputation with Spaceship Titanic"
 author: "Alejandro Hernandez"
 date: "2022-08-04"
 output: pdf_document
@@ -7,24 +7,101 @@ output: pdf_document
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
+# set working directory to project directory (outside of SRC folder)
+split <- str_split(getwd(), "/", simplify = TRUE)
+wdir <- paste(split[-length(split)], collapse = "/")
+knitr::opts_knit$set(root.dir = wdir)
 ```
 
-## R Markdown
-
-This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
-
-When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
-
-```{r cars}
-summary(cars)
+```{r, include=FALSE}
+rm(list=ls())
+library(stringr)  # string manipulation
+library(dplyr)  # data frame manipulation
+library(mice) # imputation functions
+library(ggplot2)  # plotting
+library(tidyr)  # replacing NA
 ```
 
-## Including Plots
+Imputation is the practice of assigning a missing value to an observation/record by inference or prediction. The goal of this script is to impute the necessary fields of the *Spaceship Titanic* dataset. Preferred methods of imputation vary by dataset, so we aim to compare the utility between multiple methods.
 
-You can also embed plots, for example:
+First, let's import our dataset, edit some variable types, and count missing values in each field.
 
-```{r pressure, echo=FALSE}
-plot(pressure)
+```{r}
+# get training set
+train <- read.csv(sprintf("%s/data/train.csv", getwd()), na.strings = "")
+
+# split aggregate columns
+train <- separate(train, col=Cabin, into=c("Deck", "Num", "Side"), sep='/')
+train <-  separate(train, col=PassengerId , into=c("GroupId", "PersonalId"), sep='_')
+train <-  separate(train, col=Name , into=c("FirstName", "LastName"), sep=' ')
+
+# convert GroupId, PersonalId, and Num to type INTEGER
+train[c(1,2,6)] <- sapply(train[c(1,2,6)], as.integer)
+
+# convert missing first and last names to "NONE"
+# imputation treats NA, and it wouldn't make sense to impute
+train <- train %>%
+  mutate_at(c('FirstName','LastName'), ~ replace_na(.,"NONE"))
+
+# encode columns of type LOGICAL to INTEGER (TRUE = 1, FALSE = 0)
+train <- train %>%
+  mutate_if(is.logical, as.integer)
+
+# confirm each variable is the correct type
+sapply(train, typeof)
+```
+```{r}
+# in each column...
+# count number of missing values
+colSums(is.na(train))
+# count proportion of missing values
+round(colSums(is.na(train)) / nrow(train), 3)
 ```
 
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+Fields that have missing values are only missing around 200 (barely 2% of their data) so we can continue with imputation without worrying that the majority of the data is being estimated by us.
+
+Now, we can explore methods of imputation.
+
+## Mean/Mode Imputation
+
+Filling missing values of a variable with the variable's mean (if numeric) or mode (if categorical) is a quick, simple, and easy strategy to implement that seems- at a glance- reasonable.
+However, there are some serious drawbacks to this method. For numeric data, because mean imputed values are totally independent from other predictors, they have the potential to erase correlation between variables.
+
+```{r}
+# define function to compute mode
+getmode <- function(v, na.rm = FALSE) {
+  v <- ifelse(anyNA(v), na.omit(v), v)
+  uniqv <- unique(v)
+  uniqv[which.max(tabulate(match(v, uniqv)))]
+}
+
+# fill mean for numeric columns
+mean_imp <- train %>%
+  mutate_all(~ifelse(is.na(.x),
+                     mean(.x, na.rm = TRUE),
+                     .x))
+# fill mode for categorical columns
+mean_imp <- mean_imp %>%
+  mutate_all(~ifelse(is.na(.x),
+                     getmode(.x, na.rm = TRUE),
+                     .x))
+
+# confirm all NA are gone
+colSums(is.na(mean_imp))
+```
+
+## KNN Imputation
+
+```{r}
+
+```
+
+
+
+
+
+
+
+
+
+
