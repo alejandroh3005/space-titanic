@@ -172,13 +172,18 @@ Is group the strongest predictor of VIP?
 Any passenger with missing data for **HomePlanet** and **Destination** is traveling alone. To impute their values, we can identify the most common destination for each home planet (across all passengers), and vice versa. 
 
 ```{r}
-# get levels of home planet
+# view number of NA in each variable to impute
+colSums(is.na(group_imp[,vars]))
+cat("\n")
+
+# get levels of home and destination planet
 homes <- levels(factor(train$HomePlanet))
 h_modes <- c()
 
 dests <- levels(factor(train$Destination))
 d_modes <- c()
 
+# for each home/destination, compute the mode destination/home
 for (i in 1:length(homes)) {
   h_mode <- getmode(c(group_imp$Destination[group_imp$HomePlanet == homes[i]]))
   h_modes <- append(h_modes, h_mode)
@@ -186,16 +191,28 @@ for (i in 1:length(homes)) {
   d_mode <- getmode(c(group_imp$HomePlanet[group_imp$Destination == dests[i]]))
   d_modes <- append(d_modes, d_mode)
 }
+
+home_df <- data.frame("Home" = homes, "ModeDestination"  = h_modes)
+dest_df <- data.frame("Destination" = dests, "ModeHomePlanet"  = d_modes)
+
+# fill in value of HomePlanet based on mode Destination
+for (dest in dests) {
+  group_imp$HomePlanet <- ifelse(
+    is.na(group_imp$HomePlanet) & group_imp$Destination == dest, 
+    dest_df$ModeHomePlanet[dest_df$Destination == dest],
+    group_imp$HomePlanet)
+}
+
+# fill in value of Destination based on mode HomePlanet
+for (home in homes) {
+  group_imp$Destination <- ifelse(
+    is.na(group_imp$Destination) & group_imp$HomePlanet == home, 
+    home_df$ModeDestination[home_df$Home == home],
+    group_imp$Destination)
+}
+
+# view number of NA in each variable post-imputation
+colSums(is.na(group_imp[,vars]))
 ```
 
-
-
-
-
-
-
-
-
-
-
-
+**End of report.**
