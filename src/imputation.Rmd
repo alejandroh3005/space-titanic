@@ -100,7 +100,7 @@ For reasons discussed in the next section, we will exclude **Num** from this mod
 ```{r}
 mice_mod <- mice(train[!names(train) %in% c('Transported', 'Num')], method="rf")
 knn_imp <- complete(mice_mod)
-knn_imp[c('Num', 'Transported')] <- train[c( 'Num', 'Transported')]
+knn_imp[c('Num', 'Transported')] <- train[c('Num', 'Transported')]
 colSums(is.na(knn_imp))
 ```
 
@@ -115,34 +115,87 @@ Perhaps then, we can consider a group's most common planet of departure, destina
 Below is our implementation of this method. Note that if a group is a single passengers, whose value for a selected variable is NA, that observation cannot be estimated.
 
 ```{r}
-# define which categorical variables to impute by group
 vars <- c("HomePlanet", "Deck", "Side", "Destination")
-
+# view number of NA in each variable to impute
 group_imp <- train
 colSums(is.na(group_imp[,vars]))
 cat("\n")
 
-# iterate through each variable
-for (var in vars) {
-  # get GroupId's that have NA
-  na_groups <- unique(group_imp$GroupId[is.na(group_imp[[var]])])
-  # get GroupId column that only includes those with NA (repetitions are present)
-  df <- group_imp$GroupId[group_imp$GroupId %in% na_groups]
-  # we cannot estimate when the only member in the group has NA for the variable
-  # get id of NA groups with more than 1 member
-  na_groups <- names(table(df)[table(df) > 1])
-  
-  # for each NA group with more than 1 member, compute group mode and assign to NA
-  i <- 0
-  for (groupid in na_groups) {
-    i <- i + 1
-    ls <- c(group_imp[[var]][group_imp$GroupId == groupid])
-    mode <- getmode(ls)
-    group_imp[[var]][group_imp$GroupId == groupid] <- mode
-  }
-  cat("Imputed", i, "values of", var, "\n")
+# impute HomePlanet by group
+na_groups <- unique(group_imp$GroupId[is.na(group_imp$HomePlanet)])
+df <- group_imp$GroupId[group_imp$GroupId %in% na_groups]
+na_groups <- names(table(df)[table(df) > 1])
+for (groupid in na_groups) {
+  ls <- c(group_imp$HomePlanet[group_imp$GroupId == groupid])
+  mode <- getmode(ls)
+  group_imp$HomePlanet <- ifelse(group_imp$GroupId == groupid & is.na(group_imp$HomePlanet), mode, group_imp$HomePlanet)
 }
 
-cat("\n")
+# impute Deck by group
+na_groups <- unique(group_imp$GroupId[is.na(group_imp$Deck)])
+df <- group_imp$GroupId[group_imp$GroupId %in% na_groups]
+na_groups <- names(table(df)[table(df) > 1])
+for (groupid in na_groups) {
+  ls <- c(group_imp$Deck[group_imp$GroupId == groupid])
+  mode <- getmode(ls)
+  group_imp$Deck <- ifelse(group_imp$GroupId == groupid & is.na(group_imp$Deck), mode, group_imp$Deck)
+}
+
+# impute Side by group
+na_groups <- unique(group_imp$GroupId[is.na(group_imp$Side)])
+df <- group_imp$GroupId[group_imp$GroupId %in% na_groups]
+na_groups <- names(table(df)[table(df) > 1])
+for (groupid in na_groups) {
+  ls <- c(group_imp$Side[group_imp$GroupId == groupid])
+  mode <- getmode(ls)
+  group_imp$Side <- ifelse(group_imp$GroupId == groupid & is.na(group_imp$Side), mode, group_imp$Side)
+}
+
+# impute Destination by group
+na_groups <- unique(group_imp$GroupId[is.na(group_imp$Destination)])
+df <- group_imp$GroupId[group_imp$GroupId %in% na_groups]
+na_groups <- names(table(df)[table(df) > 1])
+for (groupid in na_groups) {
+  ls <- c(group_imp$Destination[group_imp$GroupId == groupid])
+  mode <- getmode(ls)
+  group_imp$Destination <- ifelse(group_imp$GroupId == groupid & is.na(group_imp$Destination), mode, group_imp$Destination)
+}
+# view number of NA in each variable post-imputation
 colSums(is.na(group_imp[,vars]))
+
 ```
+
+Is group the strongest predictor of VIP?
+
+## Planet Imputation
+
+Any passenger with missing data for **HomePlanet** and **Destination** is traveling alone. To impute their values, we can identify the most common destination for each home planet (across all passengers), and vice versa. 
+
+```{r}
+# get levels of home planet
+homes <- levels(factor(train$HomePlanet))
+h_modes <- c()
+
+dests <- levels(factor(train$Destination))
+d_modes <- c()
+
+for (i in 1:length(homes)) {
+  h_mode <- getmode(c(group_imp$Destination[group_imp$HomePlanet == homes[i]]))
+  h_modes <- append(h_modes, h_mode)
+  
+  d_mode <- getmode(c(group_imp$HomePlanet[group_imp$Destination == dests[i]]))
+  d_modes <- append(d_modes, d_mode)
+}
+```
+
+
+
+
+
+
+
+
+
+
+
+
