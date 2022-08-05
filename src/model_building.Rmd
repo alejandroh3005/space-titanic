@@ -54,6 +54,8 @@ space_titanic_train$Transported = factor(space_titanic_train$Transported)
 
 space_titanic_train$Transported <- factor(space_titanic_train$Transported, levels = c("FALSE","TRUE"))
 
+levels(space_titanic_train$Transported) <- c("NO", "YES")
+
 control <- trainControl(method="cv",number=5)
 
 tr_control <- trainControl(method="cv",number=5)
@@ -63,10 +65,12 @@ tr_control <- trainControl(method="cv",number=5)
  #               trControl = control,
   #              data = space_titanic_train)
 
-# fit_knn <- train(Transported ~ VIP + RoomService + FoodCourt + ShoppingMall + Spa,
+#fit_knn <- train(Transported ~ VIP + RoomService + FoodCourt + ShoppingMall + Spa,
 #                 method = "knn",
  #                trControl = control,
-  #               data = space_titanic_train)
+  #               preProcess = c("center","scale"), # preprocessing recommended for KNN
+   #              tuneGrid = expand.grid(k = 100),
+    #             data = space_titanic_train)
 
 #train_log <- train(Transported ~ VIP + RoomService + FoodCourt + ShoppingMall + Spa, 
  #                  method = "glm", 
@@ -75,14 +79,14 @@ tr_control <- trainControl(method="cv",number=5)
 
 # Create and fit Lasso;
 
-lasso <- train(Transported ~ Age + CryoSleep + VIP + RoomService + ShoppingMall + Spa,
+lasso <- train(Transported ~ VIP + RoomService + FoodCourt + ShoppingMall + Spa,
              data = space_titanic_train,
              method = 'glmnet', 
              tuneGrid = expand.grid(alpha = 1, lambda = 1),
              trControl = tr_control 
 ) 
 
-ridge <- train(Transported ~ Age + VIP + RoomService + ShoppingMall + Spa,
+ridge <- train(Transported ~ VIP + RoomService + FoodCourt + ShoppingMall + Spa,
              data = space_titanic_train,
              method = 'glmnet', 
              tuneGrid = expand.grid(alpha = 0, lambda = 1),
@@ -95,7 +99,9 @@ control = trainControl(method="cv", number = 5, classProbs=TRUE)
 
 # methods: "svmLinear", "svmPoly", "svmRadial";
 
-train_svm_lin <- train(Transported ~ CryoSleep + VIP + RoomService + FoodCourt + ShoppingMall ,
+
+
+train_svm_lin <- train(Transported ~ VIP + RoomService + FoodCourt + ShoppingMall + Spa ,
                        method = "svmLinear", 
                        trControl = control,  
                        data = space_titanic_train,
