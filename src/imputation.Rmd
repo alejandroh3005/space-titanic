@@ -220,4 +220,4 @@ for (home in homes) {
 colSums(is.na(group_imp[,vars]))
 ```
 
-**End of Imputation**
+**End of Imputation.**

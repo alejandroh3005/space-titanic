@@ -1,6 +1,6 @@
 ---
 title: "Model Evaluation"
-author: "Alejandro Hernandez; Hugo Marquez"
+author: "Monica Amezquita; Alejandro Hernandez; Hugo Marquez"
 date: "2022-08-06"
 output: pdf_document
 ---
@@ -15,8 +15,13 @@ knitr::opts_knit$set(root.dir = wdir)
 ```
 
 ```{r, include = FALSE}
-library(stringr)
-library(mice)
+rm(list=ls()) # clear all local variables
+library(stringr)  # string manipulation
+library(caret)  # classification model training and evaluation
+library(tidyr)  # data frame manipulation
+library(dplyr)  # data frame manipulation
+library(yardstick)  # ROC
+library(modelr) # adding model outputs to data frame
 ```
 
 # Data Pre-Processing
@@ -30,8 +35,8 @@ train <- read.csv(sprintf("%s/data/train.csv", getwd()), na.strings = "")
 
 # split aggregate columns
 train <- separate(train, col=Cabin, into=c("Deck", "Num", "Side"), sep='/')
-train <-  separate(train, col=PassengerId , into=c("GroupId", "PersonalId"), sep='_')
-train <-  separate(train, col=Name , into=c("FirstName", "LastName"), sep=' ')
+train <- separate(train, col=PassengerId , into=c("GroupId", "PersonalId"), sep='_')
+train <- separate(train, col=Name , into=c("FirstName", "LastName"), sep=' ')
 
 # convert GroupId, PersonalId, and Num to type INTEGER
 train[c(1,2,6)] <- sapply(train[c(1,2,6)], as.integer)
@@ -66,10 +71,12 @@ space_titanic_train <- train[train_index, ]
 space_titanic_valid <- train[-train_index, ]
 
 cat("Training set size: ", nrow(space_titanic_train))
-cat("Validation set size: ", nrow(space_titanic_valid))
+cat("\nValidation set size: ", nrow(space_titanic_valid))
 ```
 
 # Model Building
+
+### Binary Classification
 
 ```{r}
 # Suppose the response variable is deaths and fit the model to the training data; # using drivers as predictor for a linear model;
@@ -96,7 +103,7 @@ fit_knn <- train(Transported ~ VIP + RoomService + FoodCourt + ShoppingMall + Sp
                  data = space_titanic_train)
 ```
 
-## Lasso and Ridge Regression
+## Lasso and Ridge Classification
 
 ```{r}
 lasso <- train(Transported ~ VIP + RoomService + FoodCourt + ShoppingMall + Spa,
@@ -131,6 +138,8 @@ control = trainControl(method="cv", number = 5, classProbs=TRUE)
 
 ## Support Vector Machine
 
+### Linear Decision Boundary
+
 ```{r}
 train_svm_lin <- train(Transported ~ VIP + RoomService + FoodCourt + ShoppingMall + Spa ,
                        method = "svmLinear", 
@@ -140,12 +149,23 @@ train_svm_lin <- train(Transported ~ VIP + RoomService + FoodCourt + ShoppingMal
                        tuneGrid = expand.grid(C = seq(0.01, 2, length=20))  # tuning parameters go here
                    )
 
-
 cbind(coef(lasso$finalModel, lasso$finalModel$lambdaOpt),
       coef(ridge$finalModel, ridge$finalModel$lambdaOpt)
       )
 
 train_svm_lin$finalModel
+```
+
+### Polynomial Decision Boundary
+
+```{r}
+
+```
+
+### Amorphous Decision Boundaries (RBF Kernel)
+
+```{r}
+
 ```
 
 ## Fully-Connected Neural Network
@@ -154,11 +174,71 @@ train_svm_lin$finalModel
 
 ```
 
-# Model Evaluation
+# Model Evaluations
 
 ```{r}
+# I'm going to create an example model (logistic regression) to use for now and test metrics on
+control <- trainControl(method = "cv", number = 5)
+space_titanic_train$Transported <- factor(space_titanic_train$Transported)
+levels(space_titanic_train$Transported) <- c("No", "Yes")
 
+space_titanic_valid$Transported <- factor(space_titanic_valid$Transported)
+levels(space_titanic_valid$Transported) <- c("No", "Yes")
+
+
+fit_lr <- train(Transported ~ CryoSleep + Age + Side + HomePlanet,
+                method = "glm",
+                trControl = control,
+                data = space_titanic_train)
+# add predictions to data frame
+space_titanic_valid <- space_titanic_valid %>%
+  add_predictions(fit_lr, var = "lr_clas") %>%
+  mutate(lr_prob = predict(fit_lr, newdata = ., type="prob")$Yes)
+
+coef(fit_lr$finalModel)
+
+head(space_titanic_valid)
 ```
+
+## Sensitivity and Specificity Metrics
+
+```{r}
+?yardstick::sens
+?yardstick::spec
+?yardstick::ppv
+?yardstick::npv
+
+metrics <- metric_set(accuracy, sens, spec, ppv, npv)
+
+space_titanic_valid %>% 
+  metrics(estimate = Transported, truth = lr_clas)
+```
+
+## Confusion Matrix
+
+```{r}
+?yardstick::conf_mat
+
+space_titanic_valid %>% 
+  conf_mat(Transported, lr_clas) # %>% summary(event_level = "second")
+```
+
+## ROC Curve and AUC
+
+```{r}
+?yardstick::roc_curve
+?yardstick::roc_auc
+
+space_titanic_valid %>% 
+  roc_curve(truth = Transported,
+            estimate = lr_prob,
+            event_level = "second") %>%
+  ggplot(aes(x = 1 - specificity,
+             y = sensitivity)) +
+  geom_line() +
+  geom_abline(slope = 1, intercept = 0, size = 0.4)
+```
+
 
 
 **End of Model Evaluation**
