@@ -14,7 +14,7 @@ knitr::opts_knit$set(root.dir = wdir)
 ```
 
 ```{r, include=FALSE}
-rm(list=ls())
+rm(list=ls()) # clear all local variables
 library(stringr)  # string manipulation
 library(dplyr)  # data frame manipulation
 library(mice) # imputation functions
@@ -22,9 +22,11 @@ library(ggplot2)  # plotting
 library(tidyr)  # replacing NA
 ```
 
-Imputation is the practice of assigning a missing value to an observation/record by inference or prediction. The goal of this script is to impute the necessary fields of the *Spaceship Titanic* dataset. Preferred methods of imputation vary by dataset, so we aim to compare the utility between multiple methods.
+*Imputation* is the practice of assigning a missing value to an observation/record by inference or prediction. The goal of this script is to impute the necessary fields of the *Spaceship Titanic* dataset. Preferred methods of imputation vary by dataset, so we aim to compare the utility between multiple methods.
 
 First, let's import our dataset, edit some variable types, and count missing values in each field.
+
+### Import data and manipulate datatypes
 
 ```{r}
 # get training set
@@ -51,6 +53,8 @@ train <- train %>%
 sapply(train, typeof)
 ```
 
+### Count Missing Values
+
 ```{r}
 # in each column...
 # count number of missing values
@@ -75,6 +79,7 @@ getmode <- function(v, na.rm = FALSE) {
   uniqv[which.max(tabulate(match(v, uniqv)))]
 }
 ```
+
 ```{r}
 # fill mean for numeric columns
 mean_imp <- train %>%
@@ -169,7 +174,7 @@ Is group the strongest predictor of VIP?
 
 ## Planet Imputation
 
-Any passenger with missing data for **HomePlanet** and **Destination** is traveling alone. To impute their values, we can identify the most common destination for each home planet (across all passengers), and vice versa. 
+Any passenger with missing data for **HomePlanet** and **Destination** is traveling alone. To impute their values, we can identify the most common destination for each home planet (across all passengers), and vice versa.
 
 ```{r}
 # view number of NA in each variable to impute
@@ -215,4 +220,4 @@ for (home in homes) {
 colSums(is.na(group_imp[,vars]))
 ```
 
-**End of report.**
+**End of Imputation**

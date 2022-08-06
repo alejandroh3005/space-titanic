@@ -1,6 +1,6 @@
 ---
 title: "Exploratory Analysis of Spaceship Titanic"
-author: "Amezquita, Monica; Hernandez, Alejandro; Marquez, Hugo"
+author: "Monica Amezquita; Alejandro Hernandez; Hugo Marquez"
 date: "2022-07-29"
 output: pdf_document
 ---
