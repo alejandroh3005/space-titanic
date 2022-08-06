@@ -9,6 +9,17 @@ knitr::opts_chunk$set(echo = TRUE)
 ```
 
 ```{r}
+library(ggplot2)
+library(plotly)
+library(GGally)
+library(modelr)
+library(dplyr)
+library(tidyr)
+library(sqldf)
+library(caret)
+```
+
+```{r}
 #Split certain columns into multiple column
 
 # Separate Cabin column into Deck, Num, and Side
@@ -22,6 +33,91 @@ train <-  separate(train, col=Name , into=c("FirstName", "LastName"), sep=' ')
 
 # Create Expenditure column which produces the total amount spent aboard the Spaceship Titanic
 train['Expenditure'] <- train['RoomService'] + train['FoodCourt'] + train['ShoppingMall'] + train['Spa'] + train['VRDeck']
+```
+
+```{r}
+ggplot(train, aes(x = Expenditure,fill = Transported)) + 
+  geom_histogram() + 
+  facet_wrap(vars(Transported))
+```
+
+```{r}
+#Create an ordinal variable for Deck such that 
+# A = 1
+# B = 2
+# C = 3
+# D = 4
+# E = 5
+# F = 6
+# G = 7
+# T = 8
+
+train$DeckNum <- as.factor(ifelse(train$Deck == 'A', 1,
+                     ifelse(train$Deck == 'B', 2,
+                     ifelse(train$Deck == 'C', 3,
+                     ifelse(train$Deck == 'D', 4,
+                     ifelse(train$Deck == 'E', 5,
+                     ifelse(train$Deck == 'F', 6,
+                     ifelse(train$Deck == 'G', 7,
+                     ifelse(train$Deck == 'T', 8,
+                            'NA')))))))))
+
+ggplot(train, aes(x = DeckNum, fill = Transported)) + 
+  geom_bar() + 
+  facet_wrap(vars(Transported))
+```
+
+```{r}
+# Convert side features to binary categorical: 
+# 0: P
+# 1: S
+
+train$Side <- as.factor(ifelse(train$Side == 'P', 0,
+                     ifelse(train$Side == 'S', 1, "NA"
+                            )))
+
+ggplot(train, aes(x = Side, fill = Transported)) + 
+  geom_bar() + 
+  facet_wrap(vars(Transported))
+```
+
+```{r}
+# Convert Home Planet to categorical variable
+
+# Convert side features to binary categorical: 
+# 0: Europa
+# 1: Earth
+# 2: Mars
+
+train$HomePlanet <- as.factor(ifelse(train$HomePlanet == 'Europa', 0,
+                     ifelse(train$HomePlanet == 'Earth', 1,
+                     ifelse(train$HomePlanet == 'Mars', 2,
+                            "NA"))))
+```
+
+```{r}
+# Convert Destination to categorical variable
+
+# Convert side features to binary categorical: 
+# 0: TRAPPIST-1e
+# 1: PSO J318.5-22
+# 2: 55 Cancri e
+
+train$Destination <- as.factor(ifelse(train$Destination == 'TRAPPIST-1e', 0,
+                     ifelse(train$Destination == 'PSO J318.5-22', 1,
+                     ifelse(train$Destination == '55 Cancri e', 2,
+                            "NA"))))
+```
+
+```{r}
+# Create a column populating number of people per group
+
+train$people_in_group <- sqldf("SELECT NumGroup FROM train INNER JOIN groups on train.groupId = groups.GroupId")
+
+train$people_in_group <- as.numeric(unlist(train$people_in_group))
+
+ggplot(train, aes(x = people_in_group, fill = Transported)) + 
+  geom_bar()
 ```
 
 ```{r}
@@ -39,34 +135,41 @@ ggplot(train, aes(x = Age, fill = IsSoloTraveler)) +
   geom_histogram(binwidth = 1) + 
   facet_wrap(vars(Transported))
 ```
+
 ```{r}
 # Creates a categorical variable IsSoloChildTraveller
 # with levels 1 if a child is a solo traveler (only individual in their group)
 # 2 if a child is accompanied by another person in their group 
-solo_children <- sqldf('SELECT * FROM train WHERE Age < 18 and IsSoloTraveller = 1')
+solo_children <- sqldf('SELECT * FROM train WHERE Age < 18 and IsSoloTraveler = 1')
 
-solo_children_trans <- sqldf('SELECT * FROM train WHERE Age < 18 and IsSoloTraveller = 1')
+solo_children_trans <- sqldf('SELECT * FROM train WHERE Age < 18 and IsSoloTraveler = 1')
 
 train['IsSoloChild'] <- as.factor(ifelse(train$GroupId %in% solo_children$GroupId, 1,0))
 
 hist(solo_children$Age, breaks = 18, xlim = c(0,18))
 
 ggplot(solo_children, aes(x = Age, col = Transported, fill = Transported)) + 
-  geom_histogram(binwidth = 1)
+  geom_histogram(binwidth = 1) + 
+  facet_wrap(vars(Transported))
+
+```
+
+
+```{r}
+# Creates a categorical variable TransportedChildWithGroup
+# with levels 1 if a transported child in a group
+# 2 otherwise
+
+transported_child_with_group <- sqldf('SELECT * FROM train WHERE Age <= 8 and IsSoloTraveler = 0 and Transported = 1')
+
+train$TransportedChildWithGroup <- as.factor(ifelse(train$GroupId %in% transported_child_with_group$GroupId, 1,0))
+
+ggplot(train, aes(x = people_in_group, col = TransportedChildWithGroup)) + 
+  geom_bar()
 ```
 
 ```{r}
-
+ggplot(train, aes(x = Age, fill = Transported)) + 
+  geom_histogram() +
+  facet_wrap(vars(Transported))
 ```
-
-#look at group of children 
-# and whether kids where sleeping 
-#binary if kids <= 8 and not solo - categorical 
-# how can analyze the group 
-# get ratio of teleported 
-#groups are small - 
-# cabin - how does cabin 
-
-# for each person, replace personal id with group size 
-
-
