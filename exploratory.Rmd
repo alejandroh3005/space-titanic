@@ -13,11 +13,6 @@ library(stringr)
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
-
-# set working directory to project directory (outside of SRC folder)
-split <- str_split(getwd(), "/", simplify = TRUE)
-wdir <- paste(split[-length(split)], collapse = "/")
-knitr::opts_knit$set(root.dir = wdir)
 ```
 
 ```{r}

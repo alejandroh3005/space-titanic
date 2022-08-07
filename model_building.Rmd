@@ -1,0 +1,170 @@
+---
+title: "Model Building"
+author: "Hugo Marquez; Monica Amezquita"
+date: "2022-08-04"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+library(stringr)
+library(mice)
+library(dplyr)
+library(caret)
+
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Model Building
+
+
+# Data Pre-Processing
+
+### Handle missing values
+
+```{r}
+# for now, just toss them
+train = na.omit(train)
+```
+
+### Split training and validation set
+
+```{r}
+# split train dataset into training set (75%) and validation set (25%)
+train_index <- createDataPartition(train$Transported, 
+                                   p = .75)$Resample1
+space_titanic_train <- train[train_index, ]
+space_titanic_valid <- train[-train_index, ]
+
+cat("Training set size: ", nrow(space_titanic_train))
+cat("\nValidation set size: ", nrow(space_titanic_valid))
+```
+
+### Binary Classification
+
+```{r}
+# Suppose the response variable is deaths and fit the model to the training data; # using drivers as predictor for a linear model;
+
+space_titanic_train$Transported <- factor(space_titanic_train$Transported)
+
+space_titanic_train$Transported <- factor(space_titanic_train$Transported, levels =c("0" , "1"))
+
+levels(space_titanic_train$Transported) <- c("0", "1")
+
+# HOW SHOULD WE SET UP LEVELS??
+
+space_titanic_train$Transported <- factor(space_titanic_train$Transported)
+levels(space_titanic_train$Transported) <- c("No", "Yes")
+```
+
+## K-Nearest Neighbors
+
+```{r}
+control <- trainControl(method="cv",number=5)
+
+tr_control <- trainControl(method="cv",number=5, classProbs = TRUE)
+
+
+fit_knn <- train(Transported ~ VIP + RoomService + FoodCourt + ShoppingMall + Spa,
+                 method = "knn",
+                 trControl = control,
+                 preProcess = c("center","scale"),
+                 data = space_titanic_train)
+```
+
+## Lasso and Ridge Classification
+
+```{r}
+lasso <- train(Transported ~ GroupId + HomePlanet + CryoSleep + Deck + Side + Destination + Age + Expenditure,
+             data = space_titanic_train,
+             method = 'glmnet', 
+             tuneGrid = expand.grid(alpha = 1, lambda = 1),
+             trControl = tr_control 
+)
+
+lambda_grid = 10^(seq(-3,1,by=0.1))
+
+ridge <- train(Transported ~ GroupId + HomePlanet + CryoSleep + Deck + Side + Destination + Age + Expenditure,
+             data = space_titanic_train,
+             method = 'glmnet', 
+             tuneGrid = expand.grid(alpha = 0, lambda = lambda_grid),
+             trControl = tr_control 
+             
+)
+
+# 5-fold cross-validation;
+
+control = trainControl(method="cv", number = 5, classProbs=TRUE)
+
+# methods: "svmLinear", "svmPoly", "svmRadial";
+```
+
+## Logistic Regression
+
+```{r}
+train_log <- train(y ~ GroupId + HomePlanet + CryoSleep + Deck + Side + Destination + Age + Expenditure, method = "glm",
+                   data=space_titanic_train)
+```
+
+## Support Vector Machine
+
+### Linear Decision Boundary
+
+```{r}
+train_svm_lin <- train(Transported ~ GroupId + HomePlanet + CryoSleep + Deck + Side + Destination + Age + Expenditure,
+                       method = "svmLinear", 
+                       trControl = control,  
+                       data = space_titanic_train,
+                       preProcess = c("center","scale"),  # data should be preprocessed for SVM
+                       tuneGrid = expand.grid(C = seq(0.01, 2, length=20))  # tuning parameters go here
+                   )
+
+cbind(coef(lasso$finalModel, lasso$finalModel$lambdaOpt),
+      coef(ridge$finalModel, ridge$finalModel$lambdaOpt)
+      )
+
+train_svm_lin$finalModel
+```
+
+### Polynomial Decision Boundary
+
+```{r}
+train_svm_poly <- train(Transported ~ GroupId + HomePlanet + CryoSleep + Deck + Side + Destination + Age + Expenditure,
+                        method = "svmPoly",
+                        trControl = control,
+                        data = space_titanic_train,
+                        preProcess = c("center","scale"),
+                        tuneGrid = expand.grid(scale = seq(0.01,2, length=5),
+                                                C = seq(0.01, 2, length=5),
+                                                degree = c(1,2,3)))
+```
+
+### Amorphous Decision Boundaries (RBF Kernel)
+
+```{r}
+train_svm_poly <- train(Transported ~ GroupId + HomePlanet + CryoSleep + Deck + Side + Destination + Age + Expenditure,
+                        method = "svmRadial",
+                        trControl = control,
+                        data = space_titanic_train,
+                        preProcess = c("center","scale"),
+                        tuneGrid = expand.grid(scale = seq(0.01,2, length=5),
+                                                C = seq(0.01, 2, length=5)))
+```
+
+## Fully-Connected Neural Network
+
+```{r}
+nn15 <- train(accel ~ GroupId + HomePlanet + CryoSleep + Deck + Side + Destination + Age + Expenditure,
+              method = "mlp",
+              preProc = c("center", "scale", "nzv"),
+              linOut = TRUE, # if you want regression 
+              trControl = control,
+              learnFunc = "Rprop", # robust propogation
+              maxit = 500, # for long it will run for fitting 
+              hiddenActFunc = "Act_ReLU",
+              tuneGrid = expand.grid(
+                size = c(15) # 5 nodes in hidden layer
+              ),
+              data = space_titanic_train
+              )
+```
+
