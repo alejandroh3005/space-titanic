@@ -1,6 +1,6 @@
 ---
 title: "Exploratory Analysis of Spaceship Titanic"
-author: "Monica Amezquita; Alejandro Hernandez; Hugo Marquez"
+author: "Monica Amezquita"
 date: "2022-07-29"
 output: pdf_document
 ---
@@ -12,7 +12,6 @@ library(stringr)
 library(corrplot)
 library(GGally)
 library(plotly)
-
 ```
 
 ```{r setup, include=FALSE}
@@ -34,13 +33,7 @@ train <- read.csv(sprintf("%s/data/imputed_feature_train.csv", getwd()), na.stri
 # Explore the Training Set
 
 ```{r}
-ggpairs(train[-c(5,8,16,17)])  # ignore features with many levels (i.e. names)
-```
-
-```{r}
-M <-cor(train)
-corrplot(M, type="upper", order="hclust",
-         col=brewer.pal(n=8, name="RdYlBu"))
+#ggpairs(train[-c(5,8,16,17)])  # ignore features with many levels (i.e. names)
 ```
 
 # Percentage of Transported
@@ -116,4 +109,8 @@ ggplot(train, aes(x = Deck, fill = CryoSleep)) +
 ggplot(train[!train$CryoSleep,], aes(x = CryoSleep,y = Expenditure, fill = Transported)) + 
   geom_boxplot() + 
   ylim(c(0,4000))
+```
+
+```{r}
+transported_bycabin_cryosleep <- sqldf("Select deck, count(deck) as count_deck from train where transported = 1 and cryosleep = true group by deck")
 ```

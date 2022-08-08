@@ -6,6 +6,7 @@ date: "2022-08-04"
 ---
 
 ```{r setup, include=FALSE}
+library(stringr)
 knitr::opts_chunk$set(echo = TRUE)
 # set working directory to project directory (outside of SRC folder)
 split <- str_split(getwd(), "/", simplify = TRUE)
@@ -15,7 +16,6 @@ knitr::opts_knit$set(root.dir = wdir)
 
 ```{r}
 # Load Relevant Libraries 
-library(stringr)
 library(ggplot2)
 library(plotly)
 library(GGally)
@@ -28,25 +28,34 @@ library(caret)
 
 *Feature engineering* is the process of selecting, manipulating, and transforming raw data into features that can be used in supervised learning. The purpose of this script is to transform certain features to improve the accuracy of our model. We will focus on converting categorical variables into ordinal categorical variables, such as Deck and home planet. We also separate columns such as Cabin and PassengerId into more useful categories like Deck, Num, Side, GroupId, and PersonalId.
 
-We begin by adding a small normal amount to features related to spending. In the exploratory analysis portion of the project, we noticed that many individuals had similar spending patterns such as individuals who were in cryosleep during the voyage. Because these individuals were asleep throughout the voyage, they did not spend any money on room service, food court, shopping mall, or VR deck activities. Therefore, this may cause issues in the model building stage when using models like KNN. By adding a small random normal amount, KNN should not have issues with too many ties related to spending.  
+We begin by adding a small normal amount to features related to spending. In the exploratory analysis portion of the project, we noticed that many individuals had similar spending patterns such as individuals who were in cryosleep during the voyage. Because these individuals were asleep throughout the voyage, they did not spend any money on room service, food court, shopping mall, or VR deck activities. Therefore, this may cause issues in the model building sitage when using models like KNN. By adding a small random normal amount, KNN should not have issues with too many ties related to spending.  
 
 ```{r}
-# get training set
-train <- read.csv(sprintf("%s/data/imputed_train.csv", getwd()), na.strings = "")
+# get  dataset
 
+train <- read.csv(sprintf("%s/data/train_imputed.csv", getwd()), na.strings = "")
+validation <- read.csv(sprintf("%s/data/valid_imputed.csv", getwd()), na.strings = "")
+testing <- read.csv(sprintf("%s/data/test_imputed.csv", getwd()), na.strings = "")
+```
+
+# Train Feature Engineering 
+
+```{r}
 # Add a random normal amount to all expenditure features like RoomService, FoodCourt, and ShoppingMall
 
-train$RoomService <- train$RoomService + rnorm(nrow(train),0,0.0000001)
+train$RoomService <- train$RoomService + abs(rnorm(nrow(train),0,0.0000001))
 
-train$FoodCourt <- train$FoodCourt + rnorm(nrow(train),0,0.0000001)
+train$FoodCourt <- train$FoodCourt + abs(rnorm(nrow(train),0,0.0000001))
 
-train$ShoppingMall <- train$ShoppingMall + rnorm(nrow(train),0,0.0000001)
+train$ShoppingMall <- train$ShoppingMall + abs(rnorm(nrow(train),0,0.0000001))
 
-train$Spa <- train$Spa + rnorm(nrow(train),0,0.0000001)
+train$Spa <- train$Spa + abs(rnorm(nrow(train),0,0.0000001))
 
-train$VRDeck <- train$VRDeck + rnorm(nrow(train),0,0.0000001)
+train$VRDeck <- train$VRDeck + abs(rnorm(nrow(train),0,0.0000001))
 
 train['Expenditure'] <- train['RoomService'] + train['FoodCourt'] + train['ShoppingMall'] + train['Spa'] + train['VRDeck']
+
+train['Expenditure'] <- log(train['Expenditure'])
 ```
 
 ## Convert Deck to a Ordinal Categorical Variable
@@ -180,5 +189,312 @@ ggplot(train, aes(x = people_in_group, fill = TransportedChildWithGroup)) +
 
 ```{r}
 write.csv(train, sprintf("%s/data/imputed_feature_train.csv", getwd()), row.names = FALSE)
+```
+
+# Validation Feature Engineering 
+
+```{r}
+# Add a random normal amount to all expenditure features like RoomService, FoodCourt, and ShoppingMall
+
+validation$RoomService <- validation$RoomService + abs(rnorm(nrow(validation),0,0.0000001))
+
+validation$FoodCourt <- validation$FoodCourt + abs(rnorm(nrow(validation),0,0.0000001))
+
+validation$ShoppingMall <- validation$ShoppingMall + abs(rnorm(nrow(validation),0,0.0000001))
+
+validation$Spa <- validation$Spa + abs(rnorm(nrow(validation),0,0.0000001))
+
+validation$VRDeck <- validation$VRDeck + abs(rnorm(nrow(validation),0,0.0000001))
+
+validation['Expenditure'] <- validation['RoomService'] + validation['FoodCourt'] + validation['ShoppingMall'] + validation['Spa'] + validation['VRDeck']
+
+validation['Expenditure'] <- log(validation['Expenditure'])
+```
+
+## Convert Deck to a Ordinal Categorical Variable
+
+We now seek to convert Deck, which contains character values, into ordinal data. 
+
+```{r}
+
+#Create an ordinal variable for Deck such that 
+# A = 1
+# B = 2
+# C = 3
+# D = 4
+# E = 5
+# F = 6
+# G = 7
+# T = 8
+
+validation$DeckNum <- as.factor(ifelse(validation$Deck == 'A', 1,
+                     ifelse(validation$Deck == 'B', 2,
+                     ifelse(validation$Deck == 'C', 3,
+                     ifelse(validation$Deck == 'D', 4,
+                     ifelse(validation$Deck == 'E', 5,
+                     ifelse(validation$Deck == 'F', 6,
+                     ifelse(validation$Deck == 'G', 7,
+                     ifelse(validation$Deck == 'T', 8,
+                            'NA')))))))))
+```
+
+## Convert Side feature to a Binary Categorical Variable
+
+```{r}
+
+# Convert side features to binary categorical: 
+# 0: P
+# 1: S
+
+validation$Side <- as.factor(ifelse(validation$Side == 'P', 0,
+                     ifelse(validation$Side == 'S', 1, "NA"
+                            )))
+```
+
+## Convert HomePlanet features to binary categorical
+
+In this section, we seek to convert the HomePlanet feature into a binary categorical variable. Because Earth and Mars have the least distance between the pairs of planets, we categorize Earth and Mars together. 
+
+```{r}
+
+# Convert home planet features to binary categorical: 
+# 0: Europa
+# 1: Earth
+# 1: Mars
+
+validation$HomePlanet <- as.factor(ifelse(validation$HomePlanet == 'Europa', 0,
+                     ifelse(validation$HomePlanet == 'Earth', 1,
+                     ifelse(validation$HomePlanet == 'Mars', 1,
+                            "NA"))))
+```
+
+## Create Categorical Variable for Solo Travelers
+
+```{r}
+# Creates a categorical variable IsSoloTraveler 
+# 1: If an individual is the only person in their group; 
+# 2: If an individual is in a group with at least 1 additional person
+
+groups <- sqldf("SELECT GroupId, COUNT(GroupId) AS NumGroup FROM validation GROUP BY GroupId")
+
+solo_travelers <- sqldf("SELECT * FROM groups WHERE NumGroup = 1")
+
+validation['IsSoloTraveler'] <- as.factor(ifelse(validation$GroupId %in% solo_travelers$GroupId, 1,0))
+```
+
+## Create a column populating number of people per group
+
+```{r}
+validation$people_in_group <- sqldf("SELECT NumGroup FROM validation INNER JOIN groups on validation.groupId = groups.GroupId")
+
+validation$people_in_group <- as.numeric(unlist(validation$people_in_group))
+
+ggplot(validation, aes(x = people_in_group, fill = Transported)) + 
+  geom_bar()
+```
+
+```{r}
+# Creates a categorical variable IsSoloChildTraveller
+# with levels 1 if a child is a solo traveler (only individual in their group)
+# 2 if a child is accompanied by another person in their group 
+
+solo_children <- sqldf('SELECT * FROM validation WHERE Age < 18 and IsSoloTraveler = 1')
+
+solo_children_trans <- sqldf('SELECT * FROM validation WHERE Age < 18 and IsSoloTraveler = 1')
+
+validation['IsSoloChild'] <- as.factor(ifelse(validation$GroupId %in% solo_children$GroupId, 1,0))
+
+hist(solo_children$Age, breaks = 18, xlim = c(0,18))
+
+ggplot(solo_children, aes(x = Age, col = Transported, fill = Transported)) + 
+  geom_histogram(binwidth = 1) + 
+  facet_wrap(vars(Transported))
+
+```
+
+
+```{r}
+# Creates a categorical variable TransportedChildWithGroup
+# with levels 1 if a transported child in a group
+# 2 otherwise
+
+transported_child_with_group <- sqldf('SELECT * FROM validation WHERE Age <= 8 and IsSoloTraveler = 0 and Transported = 1')
+
+validation$TransportedChildWithGroup <- as.factor(ifelse(validation$GroupId %in% transported_child_with_group$GroupId, 1,0))
+
+ggplot(validation, aes(x = people_in_group, fill = TransportedChildWithGroup)) + 
+  geom_bar()
+```
+```{r}
+# Creates a categorical variable TransportedChildWithGroup
+# with levels 1 if a transported child in a group
+# 2 otherwise
+
+child <- sqldf('SELECT * FROM validation WHERE Age < 18')
+
+validation$child <- as.factor(ifelse(validation$Age %in% transported_child_with_group$GroupId, 1,0))
+
+ggplot(validation, aes(x = people_in_group, fill = TransportedChildWithGroup)) + 
+  geom_bar()
+```
+
+## Save newly added features to new CSV file
+
+```{r}
+write.csv(validation, sprintf("%s/data/imputed_feature_validation.csv", getwd()), row.names = FALSE)
+```
+
+
+# Testing Feature Engineering 
+
+```{r}
+# Add a random normal amount to all expenditure features like RoomService, FoodCourt, and ShoppingMall
+
+testing$RoomService <- testing$RoomService + abs(rnorm(nrow(testing),0,0.0000001))
+
+testing$FoodCourt <- testing$FoodCourt + abs(rnorm(nrow(testing),0,0.0000001))
+
+testing$ShoppingMall <- testing$ShoppingMall + abs(rnorm(nrow(testing),0,0.0000001))
+
+testing$Spa <- testing$Spa + abs(rnorm(nrow(testing),0,0.0000001))
+
+testing$VRDeck <- testing$VRDeck + abs(rnorm(nrow(testing),0,0.0000001))
+
+testing['Expenditure'] <- testing['RoomService'] + testing['FoodCourt'] + testing['ShoppingMall'] + testing['Spa'] + testing['VRDeck']
+
+testing['Expenditure'] <- log(testing['Expenditure'])
+```
+
+## Convert Deck to a Ordinal Categorical Variable
+
+We now seek to convert Deck, which contains character values, into ordinal data. 
+
+```{r}
+
+#Create an ordinal variable for Deck such that 
+# A = 1
+# B = 2
+# C = 3
+# D = 4
+# E = 5
+# F = 6
+# G = 7
+# T = 8
+
+testing$DeckNum <- as.factor(ifelse(testing$Deck == 'A', 1,
+                     ifelse(testing$Deck == 'B', 2,
+                     ifelse(testing$Deck == 'C', 3,
+                     ifelse(testing$Deck == 'D', 4,
+                     ifelse(testing$Deck == 'E', 5,
+                     ifelse(testing$Deck == 'F', 6,
+                     ifelse(testing$Deck == 'G', 7,
+                     ifelse(testing$Deck == 'T', 8,
+                            'NA')))))))))
+```
+
+## Convert Side feature to a Binary Categorical Variable
+
+```{r}
+
+# Convert side features to binary categorical: 
+# 0: P
+# 1: S
+
+testing$Side <- as.factor(ifelse(testing$Side == 'P', 0,
+                     ifelse(testing$Side == 'S', 1, "NA"
+                            )))
+```
+
+## Convert HomePlanet features to binary categorical
+
+In this section, we seek to convert the HomePlanet feature into a binary categorical variable. Because Earth and Mars have the least distance between the pairs of planets, we categorize Earth and Mars together. 
+
+```{r}
+
+# Convert home planet features to binary categorical: 
+# 0: Europa
+# 1: Earth
+# 1: Mars
+
+testing$HomePlanet <- as.factor(ifelse(testing$HomePlanet == 'Europa', 0,
+                     ifelse(testing$HomePlanet == 'Earth', 1,
+                     ifelse(testing$HomePlanet == 'Mars', 1,
+                            "NA"))))
+```
+
+## Create Categorical Variable for Solo Travelers
+
+```{r}
+# Creates a categorical variable IsSoloTraveler 
+# 1: If an individual is the only person in their group; 
+# 2: If an individual is in a group with at least 1 additional person
+
+groups <- sqldf("SELECT GroupId, COUNT(GroupId) AS NumGroup FROM testing GROUP BY GroupId")
+
+solo_travelers <- sqldf("SELECT * FROM groups WHERE NumGroup = 1")
+
+testing['IsSoloTraveler'] <- as.factor(ifelse(testing$GroupId %in% solo_travelers$GroupId, 1,0))
+```
+
+## Create a column populating number of people per group
+
+```{r}
+testing$people_in_group <- sqldf("SELECT NumGroup FROM testing INNER JOIN groups on testing.groupId = groups.GroupId")
+
+testing$people_in_group <- as.numeric(unlist(testing$people_in_group))
+
+ggplot(testing, aes(x = people_in_group, fill = Transported)) + 
+  geom_bar()
+```
+
+```{r}
+# Creates a categorical variable IsSoloChildTraveller
+# with levels 1 if a child is a solo traveler (only individual in their group)
+# 2 if a child is accompanied by another person in their group 
+
+solo_children <- sqldf('SELECT * FROM testing WHERE Age < 18 and IsSoloTraveler = 1')
+
+solo_children_trans <- sqldf('SELECT * FROM testing WHERE Age < 18 and IsSoloTraveler = 1')
+
+testing['IsSoloChild'] <- as.factor(ifelse(testing$GroupId %in% solo_children$GroupId, 1,0))
+
+hist(solo_children$Age, breaks = 18, xlim = c(0,18))
+
+ggplot(solo_children, aes(x = Age, col = Transported, fill = Transported)) + 
+  geom_histogram(binwidth = 1) + 
+  facet_wrap(vars(Transported))
+
+```
+
+
+```{r}
+# Creates a categorical variable TransportedChildWithGroup
+# with levels 1 if a transported child in a group
+# 2 otherwise
+
+transported_child_with_group <- sqldf('SELECT * FROM testing WHERE Age <= 8 and IsSoloTraveler = 0 and Transported = 1')
+
+testing$TransportedChildWithGroup <- as.factor(ifelse(testing$GroupId %in% transported_child_with_group$GroupId, 1,0))
+
+ggplot(testing, aes(x = people_in_group, fill = TransportedChildWithGroup)) + 
+  geom_bar()
+```
+```{r}
+# Creates a categorical variable TransportedChildWithGroup
+# with levels 1 if a transported child in a group
+# 2 otherwise
+
+child <- sqldf('SELECT * FROM testing WHERE Age < 18')
+
+testing$child <- as.factor(ifelse(testing$Age %in% transported_child_with_group$GroupId, 1,0))
+
+ggplot(testing, aes(x = people_in_group, fill = TransportedChildWithGroup)) + 
+  geom_bar()
+```
+
+## Save newly added features to new CSV file
+
+```{r}
+write.csv(testing, sprintf("%s/data/imputed_feature_testing.csv", getwd()), row.names = FALSE)
 ```
 
