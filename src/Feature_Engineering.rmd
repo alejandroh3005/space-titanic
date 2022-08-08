@@ -7,11 +7,15 @@ date: "2022-08-04"
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
+# set working directory to project directory (outside of SRC folder)
+split <- str_split(getwd(), "/", simplify = TRUE)
+wdir <- paste(split[-length(split)], collapse = "/")
+knitr::opts_knit$set(root.dir = wdir)
 ```
 
 ```{r}
 # Load Relevant Libraries 
-
+library(stringr)
 library(ggplot2)
 library(plotly)
 library(GGally)
@@ -27,6 +31,9 @@ library(caret)
 We begin by adding a small normal amount to features related to spending. In the exploratory analysis portion of the project, we noticed that many individuals had similar spending patterns such as individuals who were in cryosleep during the voyage. Because these individuals were asleep throughout the voyage, they did not spend any money on room service, food court, shopping mall, or VR deck activities. Therefore, this may cause issues in the model building stage when using models like KNN. By adding a small random normal amount, KNN should not have issues with too many ties related to spending.  
 
 ```{r}
+# get training set
+train <- read.csv(sprintf("%s/data/imputed_train.csv", getwd()), na.strings = "")
+
 # Add a random normal amount to all expenditure features like RoomService, FoodCourt, and ShoppingMall
 
 train$RoomService <- train$RoomService + rnorm(nrow(train),0,0.0000001)
@@ -157,4 +164,10 @@ ggplot(train, aes(x = people_in_group, fill = TransportedChildWithGroup)) +
   geom_bar()
 ```
 
+
+## Save newly added features to new CSV file
+
+```{r}
+write.csv(train, sprintf("%s/data/imputed_feature_train.csv", getwd()), row.names = FALSE)
+```
 

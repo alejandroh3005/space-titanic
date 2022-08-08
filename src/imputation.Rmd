@@ -332,10 +332,7 @@ train <- train %>%
 # -----------------------------------------------------------------------------
 ## Group-based imputation
 vars <- c("HomePlanet", "Deck", "Side", "Destination", "VIP", "CryoSleep", "RoomService", "ShoppingMall")
-# view number of NA in each variable to impute
 group_imp <- train
-colSums(is.na(group_imp[,vars]))
-cat("\n")
 
 # define function to compute mode
 getmode <- function(v, na.rm = FALSE) {
@@ -500,6 +497,9 @@ train_imp[c('Transported')] <- group_imp[c('Transported')]
 # we'll adjust all negative elements in the data frame to be zero
 train_imp[train_imp < 0] <- 0
 
+# view number of NA in each variable pre-imputation
+colSums(is.na(train))
+cat("\n\n")
 # view number of NA in each variable post-imputation
 colSums(is.na(train_imp))
 ```
