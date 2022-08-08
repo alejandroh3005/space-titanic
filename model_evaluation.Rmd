@@ -1,0 +1,244 @@
+---
+title: "Model Evaluation"
+author: "Monica Amezquita; Alejandro Hernandez; Hugo Marquez"
+date: "2022-08-06"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+# set working directory to project directory (outside of SRC folder)
+split <- str_split(getwd(), "/", simplify = TRUE)
+wdir <- paste(split[-length(split)], collapse = "/")
+knitr::opts_knit$set(root.dir = wdir)
+```
+
+```{r, include = FALSE}
+rm(list=ls()) # clear all local variables
+library(stringr)  # string manipulation
+library(caret)  # classification model training and evaluation
+library(tidyr)  # data frame manipulation
+library(dplyr)  # data frame manipulation
+library(yardstick)  # ROC
+library(modelr) # adding model outputs to data frame
+```
+
+# Data Pre-Processing
+
+### Import data and extract features
+
+```{r}
+set.seed(28765)
+# get training set
+train <- read.csv(sprintf("%s/data/train.csv", getwd()), na.strings = "")
+
+# split aggregate columns
+train <- separate(train, col=Cabin, into=c("Deck", "Num", "Side"), sep='/')
+train <- separate(train, col=PassengerId , into=c("GroupId", "PersonalId"), sep='_')
+train <- separate(train, col=Name , into=c("FirstName", "LastName"), sep=' ')
+
+# convert GroupId, PersonalId, and Num to type INTEGER
+train[c(1,2,6)] <- sapply(train[c(1,2,6)], as.integer)
+
+# convert missing first and last names to "NONE"
+# imputation treats NA, and it wouldn't make sense to impute
+train <- train %>%
+  mutate_at(c('FirstName','LastName'), ~ replace_na(.,"NONE"))
+
+# encode columns of type LOGICAL to INTEGER (TRUE = 1, FALSE = 0)
+train <- train %>%
+  mutate_if(is.logical, as.integer)
+
+# confirm each variable is the correct type
+sapply(train, typeof)
+```
+
+### Handle missing values
+
+```{r}
+# for now, just toss them
+train = na.omit(train)
+```
+
+### Split training and validation set
+
+```{r}
+# split train dataset into training set (75%) and validation set (25%)
+train_index <- createDataPartition(train$Transported, 
+                                   p = .75)$Resample1
+space_titanic_train <- train[train_index, ]
+space_titanic_valid <- train[-train_index, ]
+
+cat("Training set size: ", nrow(space_titanic_train))
+cat("\nValidation set size: ", nrow(space_titanic_valid))
+```
+
+# Model Building
+
+### Binary Classification
+
+```{r}
+# Suppose the response variable is deaths and fit the model to the training data; # using drivers as predictor for a linear model;
+
+space_titanic_train$Transported = factor(space_titanic_train$Transported)
+
+space_titanic_train$Transported <- factor(space_titanic_train$Transported, levels =c("0" , "1"))
+
+levels(space_titanic_train$Transported) <- c("0", "1")
+```
+
+## K-Nearest Neighbors
+
+```{r}
+control <- trainControl(method="cv",number=5)
+
+tr_control <- trainControl(method="cv",number=5, classProbs = TRUE)
+
+
+fit_knn <- train(Transported ~ VIP + RoomService + FoodCourt + ShoppingMall + Spa,
+                 method = "knn",
+                 trControl = control,
+                 preProcess = c("center","scale"),
+                 data = space_titanic_train)
+```
+
+## Lasso and Ridge Classification
+
+```{r}
+lasso <- train(Transported ~ VIP + RoomService + FoodCourt + ShoppingMall + Spa,
+             data = space_titanic_train,
+             method = 'glmnet', 
+             tuneGrid = expand.grid(alpha = 1, lambda = 1),
+             trControl = tr_control 
+)
+
+lambda_grid = 10^(seq(-3,1,by=0.1))
+
+ridge <- train(Transported ~ VIP + RoomService + FoodCourt + ShoppingMall + Spa,
+             data = space_titanic_train,
+             method = 'glmnet', 
+             tuneGrid = expand.grid(alpha = 0, lambda = lambda_grid),
+             trControl = tr_control 
+             
+)
+
+# 5-fold cross-validation;
+
+control = trainControl(method="cv", number = 5, classProbs=TRUE)
+
+# methods: "svmLinear", "svmPoly", "svmRadial";
+```
+
+## Logistic Regression
+
+```{r}
+
+```
+
+## Support Vector Machine
+
+### Linear Decision Boundary
+
+```{r}
+train_svm_lin <- train(Transported ~ VIP + RoomService + FoodCourt + ShoppingMall + Spa ,
+                       method = "svmLinear", 
+                       trControl = control,  
+                       data = space_titanic_train,
+                       preProcess = c("center","scale"),  # data should be preprocessed for SVM
+                       tuneGrid = expand.grid(C = seq(0.01, 2, length=20))  # tuning parameters go here
+                   )
+
+cbind(coef(lasso$finalModel, lasso$finalModel$lambdaOpt),
+      coef(ridge$finalModel, ridge$finalModel$lambdaOpt)
+      )
+
+train_svm_lin$finalModel
+```
+
+### Polynomial Decision Boundary
+
+```{r}
+
+```
+
+### Amorphous Decision Boundaries (RBF Kernel)
+
+```{r}
+
+```
+
+## Fully-Connected Neural Network
+
+```{r}
+
+```
+
+# Model Evaluations
+
+```{r}
+# I'm going to create an example model (logistic regression) to use for now and test metrics on
+control <- trainControl(method = "cv", number = 5)
+space_titanic_train$Transported <- factor(space_titanic_train$Transported)
+levels(space_titanic_train$Transported) <- c("No", "Yes")
+
+space_titanic_valid$Transported <- factor(space_titanic_valid$Transported)
+levels(space_titanic_valid$Transported) <- c("No", "Yes")
+
+
+fit_lr <- train(Transported ~ CryoSleep + Age + Side + HomePlanet,
+                method = "glm",
+                trControl = control,
+                data = space_titanic_train)
+# add predictions to data frame
+space_titanic_valid <- space_titanic_valid %>%
+  add_predictions(fit_lr, var = "lr_clas") %>%
+  mutate(lr_prob = predict(fit_lr, newdata = ., type="prob")$Yes)
+
+coef(fit_lr$finalModel)
+
+head(space_titanic_valid)
+```
+
+## Sensitivity and Specificity Metrics
+
+```{r}
+?yardstick::sens
+?yardstick::spec
+?yardstick::ppv
+?yardstick::npv
+
+metrics <- metric_set(accuracy, sens, spec, ppv, npv)
+
+space_titanic_valid %>% 
+  metrics(estimate = Transported, truth = lr_clas)
+```
+
+## Confusion Matrix
+
+```{r}
+?yardstick::conf_mat
+
+space_titanic_valid %>% 
+  conf_mat(Transported, lr_clas) # %>% summary(event_level = "second")
+```
+
+## ROC Curve and AUC
+
+```{r}
+?yardstick::roc_curve
+?yardstick::roc_auc
+
+space_titanic_valid %>% 
+  roc_curve(truth = Transported,
+            estimate = lr_prob,
+            event_level = "second") %>%
+  ggplot(aes(x = 1 - specificity,
+             y = sensitivity)) +
+  geom_line() +
+  geom_abline(slope = 1, intercept = 0, size = 0.4)
+```
+
+
+
+**End of Model Evaluation**
