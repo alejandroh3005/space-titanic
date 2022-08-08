@@ -163,7 +163,18 @@ train$TransportedChildWithGroup <- as.factor(ifelse(train$GroupId %in% transport
 ggplot(train, aes(x = people_in_group, fill = TransportedChildWithGroup)) + 
   geom_bar()
 ```
+```{r}
+# Creates a categorical variable TransportedChildWithGroup
+# with levels 1 if a transported child in a group
+# 2 otherwise
 
+child <- sqldf('SELECT * FROM train WHERE Age < 18')
+
+train$child <- as.factor(ifelse(train$Age %in% transported_child_with_group$GroupId, 1,0))
+
+ggplot(train, aes(x = people_in_group, fill = TransportedChildWithGroup)) + 
+  geom_bar()
+```
 
 ## Save newly added features to new CSV file
 
