@@ -329,7 +329,11 @@ train <- train %>%
   mutate_if(is.logical, as.integer)
 
 
+<<<<<<< HEAD
 # -----------------------------------------------------------------------------
+=======
+
+>>>>>>> 25253464606e3e8c990be5e150dafdb2fa53faa6
 ## Group-based imputation
 vars <- c("HomePlanet", "Deck", "Side", "Destination", "VIP", "CryoSleep", "RoomService", "ShoppingMall")
 # view number of NA in each variable to impute
@@ -426,7 +430,11 @@ for (groupid in na_groups) {
 
 
 
+<<<<<<< HEAD
 # -----------------------------------------------------------------------------
+=======
+
+>>>>>>> 25253464606e3e8c990be5e150dafdb2fa53faa6
 ## Planet-based imputation
 # get levels of home and destination planet
 homes <- levels(factor(train$HomePlanet))
@@ -466,7 +474,11 @@ for (home in homes) {
 
 
 
+<<<<<<< HEAD
 # -----------------------------------------------------------------------------
+=======
+
+>>>>>>> 25253464606e3e8c990be5e150dafdb2fa53faa6
 ## MICE
 # convert categorical variables (to be imputed) to factors
 vars <- c("HomePlanet", "Deck", "Side", "Destination")
