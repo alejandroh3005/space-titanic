@@ -11,6 +11,9 @@ library(dplyr)  # data frame manipulation
 library(mice) # imputation functions
 library(ggplot2)  # plotting
 library(tidyr)  # replacing NA
+
+# trash me later pls
+library(caret)
 ```
 
 ```{r setup, include=FALSE}
@@ -20,6 +23,341 @@ split <- str_split(getwd(), "/", simplify = TRUE)
 wdir <- paste(split[-length(split)], collapse = "/")
 knitr::opts_knit$set(root.dir = wdir)
 ```
+
+# Full Final Script
+
+### Necessary functions (Part 1 of 2)
+
+```{r}
+get_data <- function(df_name){
+  # get training set
+  data <- read.csv(sprintf("%s/data/%s.csv", getwd(), df_name), na.strings = "")
+
+  # split aggregate columns
+  data <- separate(data, col=Cabin, into=c("Deck", "Num", "Side"), sep='/', fill="right")
+  data <-  separate(data, col=PassengerId , into=c("GroupId", "PersonalId"), sep='_', fill="right")
+  data <-  separate(data, col=Name , into=c("FirstName", "LastName"), sep=' ', fill="right")
+  
+  data[data == "NA"] <- NA
+  
+  # convert logical characters to type LOGICAL
+  vars <- c('CryoSleep', 'VIP')
+  data[vars] <- sapply(data[vars], as.integer)
+  
+  # convert numeric characters to type INTEGER
+  vars <- c('GroupId', 'PersonalId', 'Age', 'RoomService', 'FoodCourt', 'ShoppingMall', 'Spa', 'VRDeck')
+  data[vars] <- sapply(data[vars], as.integer)
+  
+  # convert missing first and last names to "NONE"
+  # imputation treats NA, and it wouldn't make sense to impute
+  data <- data %>%
+    mutate_at(c('FirstName','LastName'), ~ replace_na(.,"NONE"))
+  
+  # encode columns of type LOGICAL to INTEGER (TRUE = 1, FALSE = 0)
+  data <- data %>%
+    mutate_if(is.logical, as.integer)
+  return(data)
+}
+```
+```{r}
+get_mode <- function(v, na.rm = FALSE) {
+  v <- ifelse(anyNA(v), na.omit(v), v)
+  uniqv <- unique(v)
+  mode <- uniqv[which.max(tabulate(match(v, uniqv)))]
+  return(mode)
+}
+```
+```{r}
+group_imputation <- function(train, valid, test){
+  # impute HomePlanet by group
+  na_groups <- unique(train$GroupId[is.na(train$HomePlanet)])
+  df <- train$GroupId[train$GroupId %in% na_groups]
+  na_groups <- names(table(df)[table(df) > 1])
+  for (groupid in na_groups) {
+    mode <- get_mode(train$HomePlanet[train$GroupId == groupid])
+    train$HomePlanet <- ifelse(train$GroupId == groupid & is.na(train$HomePlanet), mode, train$HomePlanet)
+    valid$HomePlanet <- ifelse(valid$GroupId == groupid & is.na(valid$HomePlanet), mode, valid$HomePlanet)
+    test$HomePlanet <- ifelse(test$GroupId == groupid & is.na(test$HomePlanet), mode, test$HomePlanet)
+  }
+  # impute Deck by group
+  na_groups <- unique(train$GroupId[is.na(train$Deck)])
+  df <- train$GroupId[train$GroupId %in% na_groups]
+  na_groups <- names(table(df)[table(df) > 1])
+  for (groupid in na_groups) {
+    mode <- get_mode(train$Deck[train$GroupId == groupid])
+    train$Deck <- ifelse(train$GroupId == groupid & is.na(train$Deck), mode, train$Deck)
+    valid$Deck <- ifelse(valid$GroupId == groupid & is.na(valid$Deck), mode, valid$Deck)
+    test$Deck <- ifelse(test$GroupId == groupid & is.na(test$Deck), mode, test$Deck)
+  }
+  # impute Side by group
+  na_groups <- unique(train$GroupId[is.na(train$Side)])
+  df <- train$GroupId[train$GroupId %in% na_groups]
+  na_groups <- names(table(df)[table(df) > 1])
+  for (groupid in na_groups) {
+    mode <- get_mode(train$Side[train$GroupId == groupid])
+    train$Side <- ifelse(train$GroupId == groupid & is.na(train$Side), mode, train$Side)
+    valid$Side <- ifelse(valid$GroupId == groupid & is.na(valid$Side), mode, valid$Side)
+    test$Side <- ifelse(test$GroupId == groupid & is.na(test$Side), mode, test$Side)
+  }
+  # impute Destination by group
+  na_groups <- unique(train$GroupId[is.na(train$Destination)])
+  df <- train$GroupId[train$GroupId %in% na_groups]
+  na_groups <- names(table(df)[table(df) > 1])
+  for (groupid in na_groups) {
+    mode <- get_mode(train$Destination[train$GroupId == groupid])
+    train$Destination <- ifelse(train$GroupId == groupid & is.na(train$Destination), mode, train$Destination)
+    valid$Destination <- ifelse(valid$GroupId == groupid & is.na(valid$Destination), mode, valid$Destination)
+    test$Destination <- ifelse(test$GroupId == groupid & is.na(test$Destination), mode, test$Destination)
+  }
+  # impute VIP by group
+  na_groups <- unique(train$GroupId[is.na(train$VIP)])
+  df <- train$GroupId[train$GroupId %in% na_groups]
+  na_groups <- names(table(df)[table(df) > 1])
+  for (groupid in na_groups) {
+    mode <- get_mode(train$VIP[train$GroupId == groupid])
+    train$VIP <- ifelse(train$GroupId == groupid & is.na(train$VIP), mode, train$VIP)
+    valid$VIP <- ifelse(valid$GroupId == groupid & is.na(valid$VIP), mode, valid$VIP)
+    test$VIP <- ifelse(test$GroupId == groupid & is.na(test$VIP), mode, test$VIP)
+  }
+  # impute CryoSleep by group
+  na_groups <- unique(train$GroupId[is.na(train$CryoSleep)])
+  df <- train$GroupId[train$GroupId %in% na_groups]
+  na_groups <- names(table(df)[table(df) > 1])
+  for (groupid in na_groups) {
+    mode <- get_mode(train$CryoSleep[train$GroupId == groupid])
+    train$CryoSleep <- ifelse(train$GroupId == groupid & is.na(train$CryoSleep), mode, train$CryoSleep)
+    valid$CryoSleep <- ifelse(valid$GroupId == groupid & is.na(valid$CryoSleep), mode, valid$CryoSleep)
+    test$CryoSleep <- ifelse(test$GroupId == groupid & is.na(test$CryoSleep), mode, test$CryoSleep)
+  }
+  # impute RoomService by group
+  na_groups <- unique(train$GroupId[is.na(train$RoomService)])
+  df <- train$GroupId[train$GroupId %in% na_groups]
+  na_groups <- names(table(df)[table(df) > 1])
+  for (groupid in na_groups) {
+    avg <- mean(train$RoomService[train$GroupId == groupid], na.rm = TRUE)
+    train$RoomService <- ifelse(train$GroupId == groupid & is.na(train$RoomService), avg, train$RoomService)
+    valid$RoomService <- ifelse(valid$GroupId == groupid & is.na(valid$RoomService), avg, valid$RoomService)
+    test$RoomService <- ifelse(test$GroupId == groupid & is.na(test$RoomService), avg, test$RoomService)
+  }
+  # impute ShoppingMall by group
+  na_groups <- unique(train$GroupId[is.na(train$ShoppingMall)])
+  df <- train$GroupId[train$GroupId %in% na_groups]
+  na_groups <- names(table(df)[table(df) > 1])
+  for (groupid in na_groups) {
+    avg <- mean(train$ShoppingMall[train$GroupId == groupid], na.rm = TRUE)
+    train$ShoppingMall <- ifelse(train$GroupId == groupid & is.na(train$ShoppingMall), avg, train$ShoppingMall)
+    valid$ShoppingMall <- ifelse(valid$GroupId == groupid & is.na(valid$ShoppingMall), avg, valid$ShoppingMall)
+    test$ShoppingMall <- ifelse(test$GroupId == groupid & is.na(test$ShoppingMall), avg, test$ShoppingMall)
+  }
+  return(list('train'=train, 'valid'=valid, 'test'=test))
+}
+```
+
+### Complete process  (Part 2 of 2)
+
+```{r}
+# ---- initialize training/validation/testing data sets ----
+set.seed(28765)
+original_train <- read.csv(sprintf("%s/data/train.csv", getwd()), na.strings = "")
+train_index <- createDataPartition(original_train$Transported, 
+                                   p = .75)$Resample1
+train <- original_train[train_index, ]
+valid <- original_train[-train_index,]
+write.csv(train,
+          sprintf("%s/data/training.csv", getwd()), row.names = FALSE)
+write.csv(valid,
+          sprintf("%s/data/validation.csv", getwd()), row.names = FALSE)
+
+train <- get_data(df_name = "training")
+valid <- get_data(df_name = "validation")
+test <- get_data(df_name = "test")
+
+## ---- Group-based ----
+group_imputations <- group_imputation(train, valid, test)
+train_imp <- group_imputations$train
+valid_imp <- group_imputations$valid
+test_imp <- group_imputations$test
+
+## ---- Planet-based ----
+# get levels of home and destination planet
+homes <- levels(factor(train_imp$HomePlanet))
+h_modes <- c()
+dests <- levels(factor(train_imp$Destination))
+d_modes <- c()
+# for each home/destination, compute the mode destination/home
+for (i in 1:length(homes)) {
+  h_mode <- get_mode(c(train_imp$Destination[train_imp$HomePlanet == homes[i]]))
+  h_modes <- append(h_modes, h_mode)
+  
+  d_mode <- get_mode(c(train_imp$HomePlanet[train_imp$Destination == dests[i]]))
+  d_modes <- append(d_modes, d_mode)
+}
+home_df <- data.frame("Home" = homes, "ModeDestination"  = h_modes)
+dest_df <- data.frame("Destination" = dests, "ModeHomePlanet"  = d_modes)
+
+# TRAINING DATA
+# fill in value of HomePlanet based on mode Destination
+for (dest in dests) {
+  train_imp$HomePlanet <- ifelse(
+    is.na(train_imp$HomePlanet) & train_imp$Destination == dest, 
+    dest_df$ModeHomePlanet[dest_df$Destination == dest],
+    train_imp$HomePlanet)
+}
+# fill in value of Destination based on mode HomePlanet
+for (home in homes) {
+  train_imp$Destination <- ifelse(
+    is.na(train_imp$Destination) & train_imp$HomePlanet == home, 
+    home_df$ModeDestination[home_df$Home == home],
+    train_imp$Destination)
+}
+
+# VALDIATION DATA
+# fill in value of HomePlanet based on mode Destination
+for (dest in dests) {
+  valid_imp$HomePlanet <- ifelse(
+    is.na(valid_imp$HomePlanet) & valid_imp$Destination == dest, 
+    dest_df$ModeHomePlanet[dest_df$Destination == dest],
+    valid_imp$HomePlanet)
+}
+# fill in value of Destination based on mode HomePlanet
+for (home in homes) {
+  valid_imp$Destination <- ifelse(
+    is.na(valid_imp$Destination) & valid_imp$HomePlanet == home, 
+    home_df$ModeDestination[home_df$Home == home],
+    valid_imp$Destination)
+}
+
+# TESTING DATA
+# fill in value of HomePlanet based on mode Destination
+for (dest in dests) {
+  test_imp$HomePlanet <- ifelse(
+    is.na(test_imp$HomePlanet) & test_imp$Destination == dest, 
+    dest_df$ModeHomePlanet[dest_df$Destination == dest],
+    test_imp$HomePlanet)
+}
+# fill in value of Destination based on mode HomePlanet
+for (home in homes) {
+  test_imp$Destination <- ifelse(
+    is.na(test_imp$Destination) & test_imp$HomePlanet == home, 
+    home_df$ModeDestination[home_df$Home == home],
+    test_imp$Destination)
+}
+
+## ---- MICE ----
+# train and validation data
+train_valid_df <- rbind(train_imp, valid_imp)
+# convert categorical variables (to be imputed) to factors
+vars <- c("HomePlanet", "Deck", "Side", "Destination", "VIP", "CryoSleep")
+for (var in vars) {
+  train_valid_df[,var] <- factor(train_valid_df[,var])
+}
+train_valid_df$Num <- as.integer(train_valid_df$Num)
+# impute using column-dependent methods
+mice_mod <- mice(train_valid_df[!names(train_valid_df) %in% c('Transported')], 
+                 method=c("", "", # GroupId, PersonalId
+                          "lda", # HomePlanet
+                          "lasso.logreg", # CryoSleep
+                          "lda", # Deck
+                          "lasso.norm", # Num
+                          "lasso.logreg", # Side
+                          "lda", # Destination
+                          "lasso.norm", # Age
+                          "lasso.logreg", # VIP
+                          "lasso.norm", # Room Service
+                          "lasso.norm", # Food Court
+                          "lasso.norm", # Shopping Mall
+                          "lasso.norm", # Spa
+                          "lasso.norm", # VRDeck
+                          "", "" # First Name, Last Name
+                          ),
+                 ignore = c(rep(FALSE, nrow(train)), rep(TRUE, nrow(valid))))
+train_valid_imp <- complete(mice_mod)
+train_valid_imp[c('Transported')] <- train_valid_df[c('Transported')]
+train_imp <- train_valid_imp[1:nrow(train),]
+valid_imp <- train_valid_imp[-c(1:nrow(train)),]
+# the numeric variables (such as Age, RoomService, etc.) were predicted as negative
+# we'll adjust all negative elements in the data frame to be zero
+valid_imp[valid_imp < 0] <- 0
+train_imp[train_imp < 0] <- 0
+write.csv(train_imp, sprintf("%s/data/train_imputed.csv", getwd()), row.names = FALSE)
+write.csv(valid_imp, sprintf("%s/data/valid_imputed.csv", getwd()), row.names = FALSE)
+
+# test data
+test_imp$CryoSleep <- as.logical(test_imp$CryoSleep)
+test_imp$VIP <- as.logical(test_imp$VIP)
+test_imp[c('Transported')] <- rep(-1, nrow(test_imp))
+train_test_df <- rbind(train_imp, test_imp)
+# convert categorical variables (to be imputed) to factors
+vars <- c("HomePlanet", "Deck", "Side", "Destination", "VIP", "CryoSleep")
+for (var in vars) {
+  train_test_df[,var] <- factor(train_test_df[,var])
+}
+train_test_df$Num <- as.integer(train_test_df$Num)
+# impute using column-dependent methods
+mice_mod <- mice(train_test_df[!names(train_test_df) %in% c('Transported')], 
+                 method=c("", "", # GroupId, PersonalId
+                          "lda", # HomePlanet
+                          "lasso.logreg", # CryoSleep
+                          "lda", # Deck
+                          "lasso.norm", # Num
+                          "lasso.logreg", # Side
+                          "lda", # Destination
+                          "lasso.norm", # Age
+                          "lasso.logreg", # VIP
+                          "lasso.norm", # Room Service
+                          "lasso.norm", # Food Court
+                          "lasso.norm", # Shopping Mall
+                          "lasso.norm", # Spa
+                          "lasso.norm", # VRDeck
+                          "", ""
+                          ),
+                 ignore = c(rep(FALSE, nrow(train)), rep(TRUE, nrow(test))))
+train_test_imp <- complete(mice_mod)
+train_test_imp['Transported'] <- train_test_df$Transported
+test_imp <- train_test_imp[-c(1:nrow(train)),]
+# the numeric variables (such as Age, RoomService, etc.) were predicted as negative
+# we'll adjust all negative elements in the data frame to be zero
+test_imp[test_imp < 0] <- 0
+test_imp$Transported <- train_test_imp$Transported[-c(1:nrow(train))]
+
+write.csv(test_imp, sprintf("%s/data/test_imputed.csv", getwd()), row.names = FALSE)
+```
+
+```{r}
+# view number of NA in each variable pre-imputation
+colSums(is.na(train))
+cat("\n\n")
+# view number of NA in each variable post-imputation
+colSums(is.na(train_imp))
+```
+
+```{r}
+# view number of NA in each variable pre-imputation
+colSums(is.na(valid))
+cat("\n\n")
+# view number of NA in each variable post-imputation
+colSums(is.na(valid_imp))
+```
+
+```{r}
+# view number of NA in each variable pre-imputation
+colSums(is.na(test))
+cat("\n\n")
+# view number of NA in each variable post-imputation
+colSums(is.na(test_imp))
+```
+
+
+
+
+
+
+
+
+
+
+
+# Written Section
 
 *Imputation* is the practice of assigning a missing value to an observation/record by inference or prediction. The goal of this script is to impute the necessary fields of the *Spaceship Titanic* dataset. Preferred methods of imputation vary by dataset, so we aim utilize multiple methods.
 
@@ -308,25 +646,6 @@ colSums(is.na(group_imp[,vars]))
 # Full Imputation Pipeline
 
 ```{r}
-# get training set
-train <- read.csv(sprintf("%s/data/train.csv", getwd()), na.strings = "")
-
-# split aggregate columns
-train <- separate(train, col=Cabin, into=c("Deck", "Num", "Side"), sep='/')
-train <-  separate(train, col=PassengerId , into=c("GroupId", "PersonalId"), sep='_')
-train <-  separate(train, col=Name , into=c("FirstName", "LastName"), sep=' ')
-
-# convert GroupId, PersonalId, and Num to type INTEGER
-train[c(1,2,6)] <- sapply(train[c(1,2,6)], as.integer)
-
-# convert missing first and last names to "NONE"
-# imputation treats NA, and it wouldn't make sense to impute
-train <- train %>%
-  mutate_at(c('FirstName','LastName'), ~ replace_na(.,"NONE"))
-
-# encode columns of type LOGICAL to INTEGER (TRUE = 1, FALSE = 0)
-train <- train %>%
-  mutate_if(is.logical, as.integer)
 
 
 # -----------------------------------------------------------------------------
@@ -461,53 +780,12 @@ for (home in homes) {
 
 }
 
-
-
-# -----------------------------------------------------------------------------
-## MICE
-# convert categorical variables (to be imputed) to factors
-vars <- c("HomePlanet", "Deck", "Side", "Destination")
-
-for (var in vars) {
-  group_imp[,var] <- factor(group_imp[,var])
-}
-
-# impute using column-dependent methods
-mice_mod <- mice(group_imp[!names(group_imp) %in% c('Transported')], 
-                 method=c("", "", # GroupId, PersonalId
-                          "lda", # HomePlanet
-                          "lasso.logreg", # CryoSleep
-                          "lda", # Deck
-                          "lasso.norm", # Num
-                          "lasso.logreg", # Side
-                          "lda", # Destination
-                          "lasso.norm", # Age
-                          "lasso.logreg", # VIP
-                          "lasso.norm", # Room Service
-                          "lasso.norm", # Food Court
-                          "lasso.norm", # Shopping Mall
-                          "lasso.norm", # Spa
-                          "lasso.norm", # VRDeck
-                          "", "" # First Name, Last Name
-                          ))
-train_imp <- complete(mice_mod)
-train_imp[c('Transported')] <- group_imp[c('Transported')]
-
-# the numeric variables (such as Age, RoomService, etc.) were predicted as negative
-# we'll adjust all negative elements in the data frame to be zero
-train_imp[train_imp < 0] <- 0
-
-# view number of NA in each variable pre-imputation
-colSums(is.na(train))
-cat("\n\n")
-# view number of NA in each variable post-imputation
-colSums(is.na(train_imp))
 ```
-## Save imputated dataset to csv
 
-```{r}
-write.csv(train_imp, sprintf("%s/data/imputed_train.csv", getwd()), row.names = FALSE)
-```
+
+
+
+
 
 # Supplementary
 

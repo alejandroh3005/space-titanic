@@ -6,25 +6,30 @@ output: pdf_document
 ---
 
 ```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+# set working directory to project directory (outside of SRC folder)
+split <- str_split(getwd(), "/", simplify = TRUE)
+wdir <- paste(split[-length(split)], collapse = "/")
+knitr::opts_knit$set(root.dir = wdir)
+```
+
+```{r, include=FALSE}
 library(stringr)
 library(mice)
 library(dplyr)
 library(caret)
 library(yardstick)
-
-knitr::opts_chunk$set(echo = TRUE)
 ```
 
 # Model Building
 
-
 # Data Pre-Processing
 
-### Handle missing values
+### Get imputed data
 
 ```{r}
-#Obtain Imputed Data
-train <- na.omit(train)
+# Obtain Imputed Data
+train <- read.csv(sprintf("%s/data/imputed_feature_train.csv", getwd()), na.strings = "")
 ```
 
 ### Split training and validation set
@@ -43,7 +48,6 @@ cat("\nValidation set size: ", nrow(space_titanic_valid))
 ### Binary Classification
 
 ```{r}
-
 #Adding levels for Training Dataset
 space_titanic_train$Transported <- factor(space_titanic_train$Transported)
 levels(space_titanic_train$Transported) <- c("No", "Yes")
@@ -137,7 +141,7 @@ space_titanic_valid <- space_titanic_valid %>%
 
 (fit_lr$results)
 
-coef(fit_lr$finalModel)
+data.frame(coef(fit_lr$finalModel))
 ```
 
 ### Sensitivity and Specificity Metrics
@@ -338,6 +342,8 @@ space_titanic_valid %>%
 ### Polynomial Decision Boundary
 
 ```{r}
+tr_control <- trainControl(method="cv",number=20, classProbs = TRUE)
+
 train_svm_poly <- train(Transported ~ GroupId + HomePlanet + Expenditure,
                         method = "svmPoly",
                         trControl = tr_control,
@@ -395,6 +401,8 @@ space_titanic_valid %>%
 ### Amorphous Decision Boundaries (RBF Kernel)
 
 ```{r}
+tr_control <- trainControl(method="cv",number=20, classProbs = TRUE)
+
 train_svm_rbf <- train(Transported ~ GroupId + HomePlanet + CryoSleep,
                         method = "svmRadial",
                         trControl = tr_control,
