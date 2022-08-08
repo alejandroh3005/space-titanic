@@ -32,7 +32,6 @@ We begin by adding a small normal amount to features related to spending. In the
 
 ```{r}
 # get  dataset
-
 train <- read.csv(sprintf("%s/data/train_imputed.csv", getwd()), na.strings = "")
 validation <- read.csv(sprintf("%s/data/valid_imputed.csv", getwd()), na.strings = "")
 testing <- read.csv(sprintf("%s/data/test_imputed.csv", getwd()), na.strings = "")
@@ -63,7 +62,6 @@ train['Expenditure'] <- log(train['Expenditure'])
 We now seek to convert Deck, which contains character values, into ordinal data. 
 
 ```{r}
-
 #Create an ordinal variable for Deck such that 
 # A = 1
 # B = 2
@@ -88,7 +86,6 @@ train$DeckNum <- as.factor(ifelse(train$Deck == 'A', 1,
 ## Convert Side feature to a Binary Categorical Variable
 
 ```{r}
-
 # Convert side features to binary categorical: 
 # 0: P
 # 1: S
@@ -103,7 +100,6 @@ train$Side <- as.factor(ifelse(train$Side == 'P', 0,
 In this section, we seek to convert the HomePlanet feature into a binary categorical variable. Because Earth and Mars have the least distance between the pairs of planets, we categorize Earth and Mars together. 
 
 ```{r}
-
 # Convert home planet features to binary categorical: 
 # 0: Europa
 # 1: Earth
@@ -495,6 +491,6 @@ ggplot(testing, aes(x = people_in_group, fill = TransportedChildWithGroup)) +
 ## Save newly added features to new CSV file
 
 ```{r}
-write.csv(testing, sprintf("%s/data/imputed_feature_testing.csv", getwd()), row.names = FALSE)
+write.csv(testing, sprintf("%s/data/imputed_feature_test.csv", getwd()), row.names = FALSE)
 ```
 

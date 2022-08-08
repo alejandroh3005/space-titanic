@@ -27,15 +27,12 @@ library(yardstick)
 # get training set
 train <- read.csv(sprintf("%s/data/imputed_feature_train.csv", getwd()), na.strings = "")
 validation <- read.csv(sprintf("%s/data/imputed_feature_validation.csv", getwd()),na.strings = "")
-test <- read.csv(sprintf("%s/data/imputed_feature_testing.csv", getwd()), na.strings = "") 
+test <- read.csv(sprintf("%s/data/imputed_feature_test.csv", getwd()), na.strings = "") 
 ```
-
 
 # Model Building
 
 # Data Pre-Processing
-
-### Handle missing values
 
 ### Split training and validation set
 
@@ -92,7 +89,6 @@ space_titanic_valid <- space_titanic_valid %>%
 
 ```{r}
 ## Sensitivity and Specificity Metrics
-
 metrics <- metric_set(accuracy, sens, spec, ppv, npv)
 
 space_titanic_valid %>% 
@@ -217,8 +213,7 @@ ridge <- caret::train(Transported ~ HomePlanet + CryoSleep + DeckNum  + Side + D
              data = space_titanic_train,
              method = 'glmnet', 
              tuneGrid = expand.grid(alpha = 0, lambda = lambda_grid),
-             trControl = tr_control 
-             
+             trControl = tr_control
 )
 
 space_titanic_train <- space_titanic_train %>%
@@ -238,7 +233,6 @@ coef(ridge$finalModel, ridge$finalModel$lambdaOpt)
 ```
 
 ```{r}
-
 #Train Metrics
 space_titanic_train %>% metrics(truth = Transported, estimate = lasso)
 
@@ -548,7 +542,6 @@ space_titanic_valid <- space_titanic_valid %>%
 ### Sensitivity and Specificity Metrics
 
 ```{r}
-
 metrics <- metric_set(accuracy, sens, spec, ppv, npv)
 
 space_titanic_valid %>% 
