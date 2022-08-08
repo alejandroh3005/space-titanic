@@ -1,5 +1,6 @@
 ---
 title: "Feature Engineering"
+author: "Monica Amezquita"
 output: html_document
 date: "2022-08-04"
 ---
@@ -9,6 +10,8 @@ knitr::opts_chunk$set(echo = TRUE)
 ```
 
 ```{r}
+# Load Relevant Libraries 
+
 library(ggplot2)
 library(plotly)
 library(GGally)
@@ -19,29 +22,32 @@ library(sqldf)
 library(caret)
 ```
 
+*Feature engineering* is the process of selecting, manipulating, and transforming raw data into features that can be used in supervised learning. The purpose of this script is to transform certain features to improve the accuracy of our model. We will focus on converting categorical variables into ordinal categorical variables, such as Deck and home planet. We also separate columns such as Cabin and PassengerId into more useful categories like Deck, Num, Side, GroupId, and PersonalId.
+
+We begin by adding a small normal amount to features related to spending. In the exploratory analysis portion of the project, we noticed that many individuals had similar spending patterns such as individuals who were in cryosleep during the voyage. Because these individuals were asleep throughout the voyage, they did not spend any money on room service, food court, shopping mall, or VR deck activities. Therefore, this may cause issues in the model building stage when using models like KNN. By adding a small random normal amount, KNN should not have issues with too many ties related to spending.  
+
 ```{r}
-#Split certain columns into multiple column
+# Add a random normal amount to all expenditure features like RoomService, FoodCourt, and ShoppingMall
 
-# Separate Cabin column into Deck, Num, and Side
-train <- separate(train, col=Cabin, into=c("Deck", "Num", "Side"), sep='/')
+train$RoomService <- train$RoomService + rnorm(nrow(train),0,0.0000001)
 
-# Separate PassenderId column into GroupId and PersonalId
-train <-  separate(train, col=PassengerId , into=c("GroupId", "PersonalId"), sep='_')
+train$FoodCourt <- train$FoodCourt + rnorm(nrow(train),0,0.0000001)
 
-# Separate Name column into FirstName and LastName
-train <-  separate(train, col=Name , into=c("FirstName", "LastName"), sep=' ')
+train$ShoppingMall <- train$ShoppingMall + rnorm(nrow(train),0,0.0000001)
 
-# Create Expenditure column which produces the total amount spent aboard the Spaceship Titanic
+train$Spa <- train$Spa + rnorm(nrow(train),0,0.0000001)
+
+train$VRDeck <- train$VRDeck + rnorm(nrow(train),0,0.0000001)
+
 train['Expenditure'] <- train['RoomService'] + train['FoodCourt'] + train['ShoppingMall'] + train['Spa'] + train['VRDeck']
 ```
 
-```{r}
-ggplot(train, aes(x = Expenditure,fill = Transported)) + 
-  geom_histogram() + 
-  facet_wrap(vars(Transported))
-```
+## Convert Deck to a Ordinal Categorical Variable
+
+We now seek to convert Deck, which contains character values, into ordinal data. 
 
 ```{r}
+
 #Create an ordinal variable for Deck such that 
 # A = 1
 # B = 2
@@ -61,13 +67,12 @@ train$DeckNum <- as.factor(ifelse(train$Deck == 'A', 1,
                      ifelse(train$Deck == 'G', 7,
                      ifelse(train$Deck == 'T', 8,
                             'NA')))))))))
-
-ggplot(train, aes(x = DeckNum, fill = Transported)) + 
-  geom_bar() + 
-  facet_wrap(vars(Transported))
 ```
 
+## Convert Side feature to a Binary Categorical Variable
+
 ```{r}
+
 # Convert side features to binary categorical: 
 # 0: P
 # 1: S
@@ -75,43 +80,42 @@ ggplot(train, aes(x = DeckNum, fill = Transported)) +
 train$Side <- as.factor(ifelse(train$Side == 'P', 0,
                      ifelse(train$Side == 'S', 1, "NA"
                             )))
-
-ggplot(train, aes(x = Side, fill = Transported)) + 
-  geom_bar() + 
-  facet_wrap(vars(Transported))
 ```
 
-```{r}
-# Convert Home Planet to categorical variable
+## Convert HomePlanet features to binary categorical
 
-# Convert side features to binary categorical: 
+In this section, we seek to convert the HomePlanet feature into a binary categorical variable. Because Earth and Mars have the least distance between the pairs of planets, we categorize Earth and Mars together. 
+
+```{r}
+
+# Convert home planet features to binary categorical: 
 # 0: Europa
 # 1: Earth
-# 2: Mars
+# 1: Mars
 
 train$HomePlanet <- as.factor(ifelse(train$HomePlanet == 'Europa', 0,
                      ifelse(train$HomePlanet == 'Earth', 1,
-                     ifelse(train$HomePlanet == 'Mars', 2,
+                     ifelse(train$HomePlanet == 'Mars', 1,
                             "NA"))))
 ```
 
+## Create Categorical Variable for Solo Travelers
+
 ```{r}
-# Convert Destination to categorical variable
+# Creates a categorical variable IsSoloTraveler 
+# 1: If an individual is the only person in their group; 
+# 2: If an individual is in a group with at least 1 additional person
 
-# Convert side features to binary categorical: 
-# 0: TRAPPIST-1e
-# 1: PSO J318.5-22
-# 2: 55 Cancri e
+groups <- sqldf("SELECT GroupId, COUNT(GroupId) AS NumGroup FROM train GROUP BY GroupId")
 
-train$Destination <- as.factor(ifelse(train$Destination == 'TRAPPIST-1e', 0,
-                     ifelse(train$Destination == 'PSO J318.5-22', 1,
-                     ifelse(train$Destination == '55 Cancri e', 2,
-                            "NA"))))
+solo_travelers <- sqldf("SELECT * FROM groups WHERE NumGroup = 1")
+
+train['IsSoloTraveler'] <- as.factor(ifelse(train$GroupId %in% solo_travelers$GroupId, 1,0))
 ```
 
-```{r}
-# Create a column populating number of people per group
+## Create a column populating number of people per group
 
+```{r}
 train$people_in_group <- sqldf("SELECT NumGroup FROM train INNER JOIN groups on train.groupId = groups.GroupId")
 
 train$people_in_group <- as.numeric(unlist(train$people_in_group))
@@ -121,25 +125,10 @@ ggplot(train, aes(x = people_in_group, fill = Transported)) +
 ```
 
 ```{r}
-# Creates a categorical variable IsSoloTraveler 
-# with levels 1 if an individual is the only person in their group; 
-# 2 if an individual is in a group with at least 1 additional person
-
-groups <- sqldf("SELECT GroupId, COUNT(GroupId) AS NumGroup FROM train GROUP BY GroupId")
-
-solo_travelers <- sqldf("SELECT * FROM groups WHERE NumGroup = 1")
-
-train['IsSoloTraveler'] <- as.factor(ifelse(train$GroupId %in% solo_travellers$GroupId, 1,0))
-
-ggplot(train, aes(x = Age, fill = IsSoloTraveler)) + 
-  geom_histogram(binwidth = 1) + 
-  facet_wrap(vars(Transported))
-```
-
-```{r}
 # Creates a categorical variable IsSoloChildTraveller
 # with levels 1 if a child is a solo traveler (only individual in their group)
 # 2 if a child is accompanied by another person in their group 
+
 solo_children <- sqldf('SELECT * FROM train WHERE Age < 18 and IsSoloTraveler = 1')
 
 solo_children_trans <- sqldf('SELECT * FROM train WHERE Age < 18 and IsSoloTraveler = 1')
@@ -164,12 +153,8 @@ transported_child_with_group <- sqldf('SELECT * FROM train WHERE Age <= 8 and Is
 
 train$TransportedChildWithGroup <- as.factor(ifelse(train$GroupId %in% transported_child_with_group$GroupId, 1,0))
 
-ggplot(train, aes(x = people_in_group, col = TransportedChildWithGroup)) + 
+ggplot(train, aes(x = people_in_group, fill = TransportedChildWithGroup)) + 
   geom_bar()
 ```
 
-```{r}
-ggplot(train, aes(x = Age, fill = Transported)) + 
-  geom_histogram() +
-  facet_wrap(vars(Transported))
-```
+

@@ -5,35 +5,76 @@ date: "2022-07-29"
 output: pdf_document
 ---
 
-```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
-# set working directory to project directory (outside of SRC folder)
-split <- str_split(getwd(), "/", simplify = TRUE)
-wdir <- paste(split[-length(split)], collapse = "/")
-knitr::opts_knit$set(root.dir = wdir)
-```
-
 ## Load Relevant Libraries and Data
 
 ```{r echo=FALSE}
-library(ggplot2)
-library(plotly)
-library(GGally)
-library(modelr)
-library(dplyr)
 library(stringr)
-library(tidyr)
-library(sqldf)
-library(caret)
+library(corrplot)
 ```
 
-```{r}
-train <- read.csv(sprintf("%s/data/train.csv", getwd()), na.strings = "")
-train <- na.omit(train)
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
 ```
+
 
 # Explore the Training Set
 
 ```{r}
 ggpairs(train[-c(1,4,13)])  # ignore features with many levels (i.e. names)
+```
+
+```{r}
+M <-cor(train)
+corrplot(M, type="upper", order="hclust",
+         col=brewer.pal(n=8, name="RdYlBu"))
+```
+
+# Percentage of Transported
+
+```{r}
+proportions <- table(train$Transported)/length(train$Transported)
+percentages <- proportions*100
+
+```
+
+# Explore Expenditure vs. Transported and Expenditure vs. Crysleep colored by Transported
+
+```{r}
+ggplot(train, aes(x = Transported,y = Expenditure, fill = Transported)) + 
+  geom_boxplot() +
+  ylim(c(0,2000))
+
+ggplot(train[!train$CryoSleep,], aes(x = CryoSleep,y = Expenditure, fill = Transported)) + 
+  geom_boxplot() + 
+  ylim(c(0,4000))
+```
+
+# Explore Count of Individuals in each Deck colored by Transported
+
+```{r}
+ggplot(train, aes(x = DeckNum, fill = Transported)) + 
+  geom_bar() + 
+  facet_wrap(vars(Transported))
+```
+
+
+# Explore Count of "Side" colored by Transported
+```{r}
+ggplot(train, aes(x = Side, fill = Transported)) + 
+  geom_bar() + 
+  facet_wrap(vars(Transported))
+```
+
+# Explore Histogran of Age colored by IsSoloTraveler
+```{r}
+ggplot(train, aes(x = Age, fill = IsSoloTraveler)) + 
+  geom_histogram(binwidth = 1) + 
+  facet_wrap(vars(Transported))
+```
+
+# Explore Histogram of Age colored by Transported
+```{r}
+ggplot(train, aes(x = Age, fill = Transported)) + 
+  geom_histogram() +
+  facet_wrap(vars(Transported))
 ```
