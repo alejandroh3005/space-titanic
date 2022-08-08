@@ -1,0 +1,60 @@
+---
+title: "KaggleSubmissions"
+author: "Monica Amezquita"
+date: "2022-08-08"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+# set working directory to project directory (outside of SRC folder)
+split <- str_split(getwd(), "/", simplify = TRUE)
+wdir <- paste(split[-length(split)], collapse = "/")
+knitr::opts_knit$set(root.dir = wdir)
+```
+
+
+# Obtain Testing dataset
+
+```{r}
+# get training set
+test <- read.csv(sprintf("%s/data/imputed_feature_testing.csv", getwd()), na.strings = "") 
+space_titanic_test <- test
+
+kaggle <- read.csv(sprintf("%s/data/test.csv", getwd()), na.strings = "") 
+```
+
+```{r}
+# Add levels to testing 
+
+#Adding levels for Validation Dataset
+space_titanic_test$Transported <- factor(space_titanic_test$Transported)
+levels(space_titanic_valid$Transported) <- c("No", "Yes")
+```
+
+```{r}
+# obtain predictions using SVM Linear 
+
+# testing set
+space_titanic_test <- space_titanic_test %>%
+  add_predictions(train_svm_lin, var="svm_lin_pred") %>% # class predictions
+  mutate(svm_lin_prob = predict(train_svm_lin, newdata = ., type="prob")$Yes) 
+
+pred <- as.factor(ifelse(predict(train_svm_lin, space_titanic_test, type="prob")>=0.75,"1","0"))
+space_titanic_test
+
+pred <- as.factor(ifelse(space_titanic_test$svm_lin_prob >= 0.75, 1,0))
+
+submission <- data.frame(kaggle$PassengerId,pred)
+
+write.csv(submission, sprintf("%s/data/submissions.csv", getwd()), row.names = FALSE)
+
+```
+
+
+```{r}
+# add predictions to training data frame
+space_titanic_train <- space_titanic_train %>%
+  add_predictions(ridge, var = "ridge_class") %>%
+  mutate(ridge_prob = predict(ridge, newdata = ., type="prob")$Yes)
+```
